@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Chat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app-container">
+        <h1>Real-Time Chat App</h1>
+
+        <div id="room-selection">
+            <h2>Join a Chat Room</h2>
+            <div class="input-group">
+                <label for="username-input">Username:</label>
+                <input type="text" id="username-input" placeholder="Enter your username" required>
+            </div>
+            <div class="input-group">
+                 <label for="room-input">Room Code:</label>
+                <input type="text" id="room-input" placeholder="Enter room code to join or create" required>
+            </div>
+            <button id="join-button">Join Room</button>
+            <p id="join-error" class="error-message"></p>
+        </div>
+
+        <div id="chat-area" style="display: none;">
+            <h2 id="room-title">Chat Room: <span></span></h2>
+            <p id="welcome-message"></p>
+
+            <div id="messages-container">
+                <ul id="messages"></ul>
+            </div>
+
+            <form id="message-form">
+                 <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off" required>
+                 <button type="submit" id="send-button">Send</button>
+            </form>
+            <button id="leave-button">Leave Room</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

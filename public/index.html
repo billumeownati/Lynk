@@ -68,7 +68,7 @@
         .markdown-content p { margin: 0; display: inline-block; }
     </style>
 </head>
-<body class="dark min-h-screen flex flex-col font-sans text-gray-800 dark:text-gray-100 relative">
+<body class="dark fixed inset-0 flex flex-col font-sans text-gray-800 dark:text-gray-100 overflow-hidden">
 
     <div id="global-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300 opacity-0">
         <div class="glass-panel rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 transform scale-95 transition-transform duration-300" id="global-modal-content">
@@ -116,8 +116,8 @@
         </div>
     </div>
 
-    <div class="flex-grow flex items-center justify-center p-2 sm:p-4 w-full relative z-10">
-        <div id="app-container" class="glass-panel w-full max-w-6xl h-[75dvh] min-h-[450px] rounded-3xl flex overflow-hidden relative shadow-2xl">
+    <div class="flex-grow flex items-center justify-center p-2 sm:p-4 w-full relative z-10 overflow-hidden min-h-0">
+        <div id="app-container" class="glass-panel w-full max-w-6xl h-full rounded-3xl flex overflow-hidden relative shadow-2xl min-h-0">
             
             <div id="setup-area" class="p-6 sm:p-10 w-full max-w-xl mx-auto flex-col justify-center overflow-y-auto flex h-full">
                 <div class="text-center mb-8 flex flex-col items-center">
@@ -181,7 +181,7 @@
                         </div>
                     </div>
 
-                    <div id="messages-container" class="flex-grow p-4 overflow-y-auto flex flex-col space-y-4"></div>
+                    <div id="messages-container" class="flex-grow px-5 py-4 sm:px-8 sm:py-6 overflow-y-auto overflow-x-hidden flex flex-col space-y-4 break-words break-all min-h-0"></div>
 
                     <div id="typing-indicator" class="px-5 h-5 text-[10px] italic font-bold text-brand-600 dark:text-brand-400 opacity-0 transition-opacity drop-shadow-sm"></div>
 
@@ -215,7 +215,7 @@
         </div>
     </div>
 
-    <div class="w-full p-3 sm:p-4 flex justify-end shrink-0 z-20">
+    <div class="w-full p-2 sm:p-4 flex justify-end shrink-0 z-20">
         <div class="pointer-events-none px-4 py-1.5 sm:px-5 sm:py-2 rounded-full bg-white/40 dark:bg-black/30 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-lg">
             <span class="font-brand text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-pink-500 dark:from-brand-400 dark:to-pink-400 text-xs sm:text-base drop-shadow-md opacity-100 tracking-wide">
                 Made by BiLLuMiNaTi

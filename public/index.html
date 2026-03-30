@@ -6,6 +6,9 @@
     <title>Lynk</title>
     
     <link rel="icon" href="/Lynk.jpg" type="image/jpeg">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="/Lynk.jpg">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -225,5 +228,17 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
+    <script>
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('PWA ServiceWorker registered successfully');
+                }).catch(err => {
+                    console.log('PWA ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
 </body>
 </html>

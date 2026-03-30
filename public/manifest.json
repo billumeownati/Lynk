@@ -1,0 +1,21 @@
+{
+  "name": "Lynk Secure Chat",
+  "short_name": "Lynk",
+  "description": "End-to-End encrypted & Anonymous chat platform.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#8b5cf6",
+  "icons": [
+    {
+      "src": "/Lynk.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/Lynk.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

@@ -12,10 +12,9 @@ const PORT = process.env.PORT || 3000;
 
 app.get("/health", (req, res) => res.status(200).send("ok"));
 app.use(express.static(path.join(__dirname, 'public')));
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "loading.html")));
-app.get("/chat", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 const rooms = {};
+const userMessageLog = {}; // For Rate Limiting
 
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
@@ -23,16 +22,23 @@ io.on('connection', (socket) => {
     const leaveCurrentRoom = () => {
         try {
             if (socket.currentRoom) {
-                socket.leave(socket.currentRoom);
-                socket.to(socket.currentRoom).emit('message', {
+                const roomCode = socket.currentRoom;
+                socket.leave(roomCode);
+                
+                socket.to(roomCode).emit('message', {
                     type: 'system',
-                    text: `${socket.username} has left.`
+                    text: `${socket.username || 'Anonymous'} has left.`
                 });
 
-                if (rooms[socket.currentRoom]) {
-                    rooms[socket.currentRoom].users = rooms[socket.currentRoom].users.filter(id => id !== socket.id);
-                    if (rooms[socket.currentRoom].users.length === 0) {
-                        delete rooms[socket.currentRoom];
+                if (rooms[roomCode]) {
+                    // Remove user from the tracking array
+                    rooms[roomCode].users = rooms[roomCode].users.filter(u => u.id !== socket.id);
+                    
+                    if (rooms[roomCode].users.length === 0) {
+                        delete rooms[roomCode];
+                    } else {
+                        // Broadcast updated FULL user list
+                        io.to(roomCode).emit('roomUsersUpdate', rooms[roomCode].users);
                     }
                 }
                 socket.currentRoom = null;
@@ -77,7 +83,12 @@ io.on('connection', (socket) => {
         socket.join(roomCode);
         socket.currentRoom = roomCode;
         socket.username = username;
-        rooms[roomCode].users.push(socket.id);
+        
+        // Track the user object containing ID and name
+        rooms[roomCode].users.push({ id: socket.id, username: username });
+
+        // Broadcast the full list of users in the room
+        io.to(roomCode).emit('roomUsersUpdate', rooms[roomCode].users);
 
         socket.emit('roomJoined', { roomCode, username });
         socket.emit('message', {
@@ -90,8 +101,25 @@ io.on('connection', (socket) => {
         });
     }
 
+    socket.on('typing', (isTyping) => {
+        if (socket.currentRoom) {
+            socket.to(socket.currentRoom).emit('userTyping', { user: socket.username, isTyping });
+        }
+    });
+
     socket.on('chatMessage', (encryptedMsg) => {
         if (socket.currentRoom && encryptedMsg && socket.username) {
+            
+            // --- Rate Limiting (Spam Protection) ---
+            const now = Date.now();
+            if (!userMessageLog[socket.id]) userMessageLog[socket.id] = [];
+            userMessageLog[socket.id] = userMessageLog[socket.id].filter(t => now - t < 3000);
+            
+            if (userMessageLog[socket.id].length >= 5) {
+                return socket.emit('roomError', 'Spam protection: Slow down!');
+            }
+            userMessageLog[socket.id].push(now);
+
             io.to(socket.currentRoom).emit('message', {
                 type: 'chat',
                 user: socket.username,
@@ -100,7 +128,10 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => leaveCurrentRoom());
+    socket.on('disconnect', () => {
+        delete userMessageLog[socket.id]; 
+        leaveCurrentRoom();
+    });
 });
 
 server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));

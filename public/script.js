@@ -17,10 +17,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const roomCodeDisplay = document.getElementById('room-code-display');
     const eyeIcon = document.getElementById('eye-icon');
     
-    // Theme Elements
+    // Sidebar & Users Elements
+    const usersSidebar = document.getElementById('users-sidebar');
+    const usersList = document.getElementById('users-list');
+    const userCountDisplay = document.getElementById('user-count');
+    const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+    const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+    const mobileOnlineToggle = document.getElementById('mobile-online-toggle');
+
+    // Theme & Audio Elements
     const themeToggleBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
     const themeText = document.getElementById('theme-text');
+    const muteToggle = document.getElementById('mute-toggle');
+    const muteIcon = document.getElementById('mute-icon');
 
     const usernameInput = document.getElementById('username-input');
     const roomInput = document.getElementById('room-input');
@@ -30,8 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageForm = document.getElementById('message-form');
     const messageInput = document.getElementById('message-input');
     const leaveButton = document.getElementById('leave-button');
+    const typingIndicator = document.getElementById('typing-indicator');
 
-    // Modal Elements
     const globalModal = document.getElementById('global-modal');
     const globalModalContent = document.getElementById('global-modal-content');
     const modalMessage = document.getElementById('modal-message');
@@ -43,13 +53,38 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentRoom = null;
     let encryptionKey = null; 
     let isCodeVisible = false;
+    let typingTimeout = null;
+
+    // --- Audio Setup ---
+    const soundSelect = document.getElementById('sound-select');
+    const savedSound = localStorage.getItem('lynksound') || '/notification.mp3';
+    const popSound = new Audio(savedSound);
+    if(soundSelect) soundSelect.value = savedSound; 
+
+    if(soundSelect) {
+        soundSelect.addEventListener('change', (e) => {
+            const newSound = e.target.value;
+            popSound.src = newSound;
+            localStorage.setItem('lynksound', newSound);
+            if (!isMuted) popSound.play().catch(() => {}); 
+        });
+    }
+
+    let isMuted = localStorage.getItem('lynkmuted') === 'true';
+    function updateMuteUI() {
+        muteIcon.className = isMuted ? 'fa-solid fa-volume-xmark text-red-500' : 'fa-solid fa-volume-high';
+    }
+    updateMuteUI();
+    muteToggle.addEventListener('click', () => {
+        isMuted = !isMuted;
+        localStorage.setItem('lynkmuted', isMuted);
+        updateMuteUI();
+    });
 
     // --- Funny Name Generator ---
-    const adjectives = ["Sneaky", "Grumpy", "Happy", "Sleepy", "Clumsy", "Dizzy", "Hungry", "Jumpy", "Cyber", "Neon", "Cosmic"];
-    const nouns = ["Potato", "Ninja", "Panda", "Unicorn", "Goblin", "Penguin", "Waffle", "Pirate", "Cactus", "Muffin", "Ghost"];
-    function generateFunnyName() {
-        return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
-    }
+    const adjectives = ["Sneaky", "Grumpy", "Happy", "Sleepy", "Clumsy", "Dizzy", "Hungry", "Cyber", "Neon", "Cosmic"];
+    const nouns = ["Potato", "Ninja", "Panda", "Unicorn", "Goblin", "Penguin", "Waffle", "Pirate", "Muffin", "Ghost"];
+    const generateFunnyName = () => `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
 
     // --- Modal Logic ---
     function showModal(message) {
@@ -60,14 +95,12 @@ document.addEventListener('DOMContentLoaded', () => {
         globalModalContent.classList.remove('scale-95');
         globalModalContent.classList.add('scale-100');
     }
-
     function closeModal() {
         globalModal.classList.add('opacity-0');
         globalModalContent.classList.remove('scale-100');
         globalModalContent.classList.add('scale-95');
         setTimeout(() => globalModal.classList.add('hidden'), 300);
     }
-
     closeModalBtn.addEventListener('click', closeModal);
     modalOkBtn.addEventListener('click', closeModal);
 
@@ -76,73 +109,70 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.classList.toggle('dark', isDark);
         document.body.classList.toggle('dark', isDark);
         document.body.classList.toggle('light', !isDark);
-        
-        if (isDark) {
-            themeIcon.classList.replace('fa-sun', 'fa-moon');
-            themeText.textContent = 'Dark Mode';
-            localStorage.setItem('theme', 'dark');
-        } else {
-            themeIcon.classList.replace('fa-moon', 'fa-sun');
-            themeText.textContent = 'Light Mode';
-            localStorage.setItem('theme', 'light');
+        if (themeIcon) {
+            themeIcon.classList.replace(isDark ? 'fa-sun' : 'fa-moon', isDark ? 'fa-moon' : 'fa-sun');
+            if(themeText) themeText.textContent = isDark ? 'Dark Mode' : 'Light Mode';
         }
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
     }
-
-    // Default to dark unless explicitly saved as light
     let currentIsDark = localStorage.getItem('theme') !== 'light';
     applyTheme(currentIsDark);
+    if(themeToggleBtn){
+        themeToggleBtn.addEventListener('click', () => applyTheme(!document.documentElement.classList.contains('dark')));
+    }
 
-    themeToggleBtn.addEventListener('click', () => {
-        currentIsDark = !document.documentElement.classList.contains('dark');
-        applyTheme(currentIsDark);
-    });
+    // --- Sidebar Toggle Logic ---
+    const toggleSidebar = () => usersSidebar.classList.toggle('translate-x-full');
+    toggleSidebarBtn.addEventListener('click', toggleSidebar);
+    closeSidebarBtn.addEventListener('click', toggleSidebar);
+    mobileOnlineToggle.addEventListener('click', toggleSidebar); // Clicking the "1 Online" opens sidebar too
 
     function setMode(mode) {
         currentMode = mode;
-        if (mode === 'join') {
-            tabJoin.classList.add('text-brand-600', 'border-brand-600');
-            tabJoin.classList.remove('text-gray-400', 'dark:text-gray-500', 'border-transparent');
-            tabCreate.classList.remove('text-brand-600', 'border-brand-600');
-            tabCreate.classList.add('text-gray-400', 'dark:text-gray-500', 'border-transparent');
-            
-            roomInputContainer.classList.remove('hidden');
-            createRoomUi.classList.add('hidden');
-            passwordContainer.classList.remove('hidden');
-            passwordInput.placeholder = "Password (if any)";
-        } else {
-            tabCreate.classList.add('text-brand-600', 'border-brand-600');
-            tabCreate.classList.remove('text-gray-400', 'dark:text-gray-500', 'border-transparent');
-            tabJoin.classList.remove('text-brand-600', 'border-brand-600');
-            tabJoin.classList.add('text-gray-400', 'dark:text-gray-500', 'border-transparent');
-            
-            roomInputContainer.classList.add('hidden');
-            createRoomUi.classList.remove('hidden');
-            passwordInput.placeholder = "Password (required if checked)";
-            togglePasswordVisibility();
-        }
+        const isJoin = mode === 'join';
+        tabJoin.classList.toggle('text-brand-600', isJoin);
+        tabJoin.classList.toggle('border-brand-600', isJoin);
+        tabJoin.classList.toggle('text-gray-400', !isJoin);
+        tabJoin.classList.toggle('border-transparent', !isJoin);
+        
+        tabCreate.classList.toggle('text-brand-600', !isJoin);
+        tabCreate.classList.toggle('border-brand-600', !isJoin);
+        tabCreate.classList.toggle('text-gray-400', isJoin);
+        tabCreate.classList.toggle('border-transparent', isJoin);
+        
+        roomInputContainer.classList.toggle('hidden', !isJoin);
+        createRoomUi.classList.toggle('hidden', isJoin);
+        passwordContainer.classList.toggle('hidden', !isJoin && !requirePasswordCheck.checked);
+        passwordInput.placeholder = isJoin ? "Password (if any)" : "Password (required if checked)";
     }
-
-    function togglePasswordVisibility() {
-        if (currentMode === 'create') {
-            passwordContainer.classList.toggle('hidden', !requirePasswordCheck.checked);
-        }
-    }
-
     tabJoin.addEventListener('click', () => setMode('join'));
     tabCreate.addEventListener('click', () => setMode('create'));
-    requirePasswordCheck.addEventListener('change', togglePasswordVisibility);
+    requirePasswordCheck.addEventListener('change', () => passwordContainer.classList.toggle('hidden', !requirePasswordCheck.checked));
 
     function resetActionButton() {
         actionButton.disabled = false;
         actionButton.innerHTML = 'Enter Lynk';
     }
 
+    // --- Markdown Formatting Tools ---
+    function insertFormatting(prefix, suffix) {
+        const start = messageInput.selectionStart;
+        const end = messageInput.selectionEnd;
+        const text = messageInput.value;
+        messageInput.value = text.substring(0, start) + prefix + text.substring(start, end) + suffix + text.substring(end);
+        messageInput.focus();
+        messageInput.selectionStart = start + prefix.length;
+        messageInput.selectionEnd = end + prefix.length;
+    }
+    document.getElementById('format-bold').addEventListener('click', () => insertFormatting('**', '**'));
+    document.getElementById('format-italic').addEventListener('click', () => insertFormatting('*', '*'));
+    document.getElementById('format-code').addEventListener('click', () => insertFormatting('`', '`'));
+
+
     // --- Core Action Button ---
     actionButton.addEventListener('click', () => {
         try {
-            if (!socket.connected) {
-                return showModal('Connecting to secure server... Please wait a moment.');
-            }
+            if (!socket.connected) return showModal('Connecting to secure server...');
 
             let username = usernameInput.value.trim() || generateFunnyName();
             let password = passwordInput.value;
@@ -150,14 +180,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (currentMode === 'join') {
                 roomCode = roomInput.value.trim();
-                if (!roomCode || roomCode.length !== 6) return showModal('Please enter a valid 6-digit numeric code to join.');
+                if (!roomCode || roomCode.length !== 6) return showModal('Enter valid 6-digit code.');
             } else {
                 roomCode = Math.floor(100000 + Math.random() * 900000).toString();
                 if (requirePasswordCheck.checked) {
-                    if (!password) return showModal('You opted to protect this room. Please enter a password.');
-                } else {
-                    password = ''; 
-                }
+                    if (!password) return showModal('Password required for protected room.');
+                } else { password = ''; }
             }
 
             actionButton.disabled = true;
@@ -166,23 +194,20 @@ document.addEventListener('DOMContentLoaded', () => {
             encryptionKey = password ? password : roomCode; 
             let passwordHash = password ? CryptoJS.SHA256(password).toString() : null;
 
-            if (currentMode === 'create') {
-                socket.emit('createRoom', { roomCode, username, passwordHash });
-            } else {
-                socket.emit('joinRoom', { roomCode, username, passwordHash });
-            }
+            if (currentMode === 'create') socket.emit('createRoom', { roomCode, username, passwordHash });
+            else socket.emit('joinRoom', { roomCode, username, passwordHash });
 
             setTimeout(() => {
-                if (actionButton.disabled && setupArea.classList.contains('hidden') === false) {
+                if (actionButton.disabled && !setupArea.classList.contains('hidden')) {
                     resetActionButton();
-                    showModal('Server connection timed out. Please try again.');
+                    showModal('Connection timed out.');
                 }
             }, 5000);
 
         } catch (error) {
             console.error("Client Error:", error);
             resetActionButton();
-            showModal('An unexpected error occurred processing your request.');
+            showModal('Unexpected error processing request.');
         }
     });
 
@@ -191,17 +216,46 @@ document.addEventListener('DOMContentLoaded', () => {
         showModal(msg); 
     });
 
-    toggleCodeBtn.addEventListener('click', () => {
-        isCodeVisible = !isCodeVisible;
-        if (isCodeVisible) {
-            roomCodeDisplay.textContent = currentRoom;
-            eyeIcon.classList.replace('fa-eye', 'fa-eye-slash');
-        } else {
-            roomCodeDisplay.textContent = '••••••';
-            eyeIcon.classList.replace('fa-eye-slash', 'fa-eye');
-        }
+    // --- Sidebar Population ---
+    socket.on('roomUsersUpdate', (users) => {
+        userCountDisplay.textContent = `${users.length} Online`;
+        usersList.innerHTML = '';
+        users.forEach(u => {
+            const li = document.createElement('li');
+            const isMe = u.id === socket.id;
+            li.className = `flex items-center gap-3 p-2.5 rounded-xl border ${isMe ? 'bg-brand-50/50 dark:bg-brand-900/30 border-brand-200 dark:border-brand-800' : 'bg-white/50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700'}`;
+            li.innerHTML = `
+                <div class="relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-pink-500 text-white font-bold shadow-sm">
+                    ${u.username.charAt(0).toUpperCase()}
+                    <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate max-w-[140px]">${u.username}</span>
+                    ${isMe ? `<span class="text-[10px] text-brand-500 font-bold uppercase tracking-wider">You</span>` : `<span class="text-[10px] text-gray-400 font-medium">Active now</span>`}
+                </div>
+            `;
+            usersList.appendChild(li);
+        });
     });
 
+    toggleCodeBtn.addEventListener('click', () => {
+        isCodeVisible = !isCodeVisible;
+        roomCodeDisplay.textContent = isCodeVisible ? currentRoom : '••••••';
+        eyeIcon.classList.replace(isCodeVisible ? 'fa-eye' : 'fa-eye-slash', isCodeVisible ? 'fa-eye-slash' : 'fa-eye');
+    });
+
+    messageInput.addEventListener('input', () => {
+        socket.emit('typing', true);
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => socket.emit('typing', false), 2000);
+    });
+
+    socket.on('userTyping', ({ user, isTyping }) => {
+        typingIndicator.textContent = isTyping ? `${user} is typing...` : '';
+        typingIndicator.style.opacity = isTyping ? '1' : '0';
+    });
+
+    // --- Message Display ---
     function displayMessage(type, user, text, isMe = false) {
         const wrapper = document.createElement('div');
         wrapper.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-[fadeIn_0.3s_ease-out]`;
@@ -211,35 +265,26 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper.innerHTML = `<span class="bg-gray-100/80 dark:bg-gray-700/80 backdrop-blur-sm text-gray-500 dark:text-gray-300 text-[10px] sm:text-[11px] uppercase tracking-wider py-1.5 px-4 rounded-full font-bold shadow-sm"><i class="fa-solid fa-shield-halved mr-1 text-brand-500"></i> ${text}</span>`;
         } else {
             const bubble = document.createElement('div');
-            
-            // UPDATED: Increased text size for messages (text-base sm:text-lg)
             bubble.className = `max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 shadow-md text-base sm:text-lg leading-relaxed ${
                 isMe ? 'bg-gradient-to-r from-brand-500 to-pink-500 text-white rounded-tr-sm' : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-gray-600 rounded-tl-sm'
             }`;
             
-            const displayName = isMe ? 'You' : user;
             const nameSpan = document.createElement('span');
-            
-            // UPDATED: Changed the color of the other person's name to highly contrasting Pink 
             nameSpan.className = `block text-xs uppercase tracking-wider font-extrabold mb-1 ${isMe ? 'text-white/90 text-right' : 'text-pink-600 dark:text-pink-400 text-left'}`;
-            nameSpan.textContent = displayName;
+            nameSpan.textContent = isMe ? 'You' : user;
             
-            const textSpan = document.createElement('span');
-            textSpan.className = "block font-medium break-words";
-            textSpan.textContent = text;
+            const contentDiv = document.createElement('div');
+            contentDiv.className = "markdown-content break-words";
+            contentDiv.innerHTML = DOMPurify.sanitize(marked.parseInline(text));
             
             bubble.appendChild(nameSpan);
-            bubble.appendChild(textSpan);
+            bubble.appendChild(contentDiv);
             wrapper.appendChild(bubble);
         }
 
         messagesContainer.appendChild(wrapper);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
-
-    const style = document.createElement('style');
-    style.innerHTML = `@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`;
-    document.head.appendChild(style);
 
     messageForm.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -249,7 +294,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const encryptedMsg = CryptoJS.AES.encrypt(msg, encryptionKey).toString();
                 socket.emit('chatMessage', encryptedMsg);
                 displayMessage('chat', currentUsername, msg, true);
+                
                 messageInput.value = '';
+                socket.emit('typing', false); 
             } catch (err) {
                 console.error("Encryption error:", err);
                 showModal("Failed to encrypt message.");
@@ -258,11 +305,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     shareButton.addEventListener('click', () => {
-        const url = `${window.location.origin}/?room=${currentRoom}`;
-        navigator.clipboard.writeText(url).then(() => {
-            const originalHTML = shareButton.innerHTML;
+        navigator.clipboard.writeText(`${window.location.origin}/?room=${currentRoom}`).then(() => {
+            const old = shareButton.innerHTML;
             shareButton.innerHTML = '<i class="fa-solid fa-check text-green-500"></i>';
-            setTimeout(() => shareButton.innerHTML = originalHTML, 2000);
+            setTimeout(() => shareButton.innerHTML = old, 2000);
         });
     });
 
@@ -291,7 +337,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const bytes = CryptoJS.AES.decrypt(data.text, encryptionKey);
                 const originalText = bytes.toString(CryptoJS.enc.Utf8);
                 if(!originalText) throw new Error('Decryption empty');
+                
                 displayMessage('chat', data.user, originalText);
+                
+                if (!isMuted) popSound.play().catch(e => console.log("Audio blocked."));
             } catch (e) {
                 displayMessage('chat', data.user, "🔒 [Encrypted Message - Unreadable]");
             }

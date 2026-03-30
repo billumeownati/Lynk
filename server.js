@@ -10,116 +10,97 @@ const io = socketIo(server);
 
 const PORT = process.env.PORT || 3000;
 
-// --- Health check (Render wake-up ping) ---
-app.get("/health", (req, res) => {
-    res.status(200).send("ok");
-});
-
-// --- Static files ---
+app.get("/health", (req, res) => res.status(200).send("ok"));
 app.use(express.static(path.join(__dirname, 'public')));
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "loading.html")));
+app.get("/chat", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
-console.log("Realtime Chat Server");
-console.log("Serving static files from:", path.join(__dirname, 'public'));
-
-// --- Serve splash screen first ---
-app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "loading.html"));
-});
-
-// --- Serve real chat app ---
-app.get("/chat", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-// --- Room tracking ---
 const rooms = {};
 
-// --- Socket.IO handling ---
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    socket.on('joinRoom', ({ roomCode, username }) => {
-        if (!roomCode || !username) {
-            socket.emit('errorJoining', 'Room code and username are required.');
-            return;
-        }
+    const leaveCurrentRoom = () => {
+        try {
+            if (socket.currentRoom) {
+                socket.leave(socket.currentRoom);
+                socket.to(socket.currentRoom).emit('message', {
+                    type: 'system',
+                    text: `${socket.username} has left.`
+                });
 
-        if (socket.currentRoom) {
-            socket.leave(socket.currentRoom);
-
-            socket.to(socket.currentRoom).emit('message', {
-                user: 'System',
-                text: `${socket.username || 'A user'} has left the room.`
-            });
-
-            if (rooms[socket.currentRoom]) {
-                rooms[socket.currentRoom] =
-                    rooms[socket.currentRoom].filter(id => id !== socket.id);
-
-                if (rooms[socket.currentRoom].length === 0) {
-                    delete rooms[socket.currentRoom];
+                if (rooms[socket.currentRoom]) {
+                    rooms[socket.currentRoom].users = rooms[socket.currentRoom].users.filter(id => id !== socket.id);
+                    if (rooms[socket.currentRoom].users.length === 0) {
+                        delete rooms[socket.currentRoom];
+                    }
                 }
+                socket.currentRoom = null;
             }
+        } catch (err) {
+            console.error("Error leaving room:", err);
         }
+    };
 
+    socket.on('createRoom', ({ roomCode, username, passwordHash }) => {
+        try {
+            if (rooms[roomCode]) {
+                return socket.emit('roomError', 'This room code is already active. Try again.');
+            }
+            leaveCurrentRoom();
+            rooms[roomCode] = { passwordHash: passwordHash || null, users: [] };
+            joinRoomInternal(socket, roomCode, username);
+        } catch (err) {
+            console.error("Error creating room:", err);
+            socket.emit('roomError', 'Internal server error while creating room.');
+        }
+    });
+
+    socket.on('joinRoom', ({ roomCode, username, passwordHash }) => {
+        try {
+            if (!rooms[roomCode]) {
+                return socket.emit('roomError', 'No room found with this code.');
+            }
+            if (rooms[roomCode].passwordHash && rooms[roomCode].passwordHash !== passwordHash) {
+                return socket.emit('roomError', 'Incorrect password for this room.');
+            }
+            
+            leaveCurrentRoom();
+            joinRoomInternal(socket, roomCode, username);
+        } catch (err) {
+            console.error("Error joining room:", err);
+            socket.emit('roomError', 'Internal server error while joining room.');
+        }
+    });
+
+    function joinRoomInternal(socket, roomCode, username) {
         socket.join(roomCode);
         socket.currentRoom = roomCode;
         socket.username = username;
-
-        if (!rooms[roomCode]) {
-            rooms[roomCode] = [];
-        }
-        rooms[roomCode].push(socket.id);
-
-        console.log(`User ${socket.id} (${username}) joined room: ${roomCode}`);
+        rooms[roomCode].users.push(socket.id);
 
         socket.emit('roomJoined', { roomCode, username });
         socket.emit('message', {
-            user: 'System',
-            text: `Welcome to room "${roomCode}", ${username}!`
+            type: 'system',
+            text: `Welcome to Lynk, ${username}. Connection is End-to-End Encrypted.`
         });
-
         socket.to(roomCode).emit('message', {
-            user: 'System',
-            text: `${username} has joined the chat.`
+            type: 'system',
+            text: `${username} joined.`
         });
-    });
+    }
 
-    socket.on('chatMessage', (msg) => {
-        if (socket.currentRoom && msg && socket.username) {
-            console.log(`Message from ${socket.username} in ${socket.currentRoom}: ${msg}`);
-
+    socket.on('chatMessage', (encryptedMsg) => {
+        if (socket.currentRoom && encryptedMsg && socket.username) {
             io.to(socket.currentRoom).emit('message', {
+                type: 'chat',
                 user: socket.username,
-                text: msg
+                text: encryptedMsg 
             });
         }
     });
 
-    socket.on('disconnect', () => {
-        console.log(`User disconnected: ${socket.id}`);
-
-        if (socket.currentRoom && socket.username) {
-            socket.to(socket.currentRoom).emit('message', {
-                user: 'System',
-                text: `${socket.username} has left the chat.`
-            });
-
-            if (rooms[socket.currentRoom]) {
-                rooms[socket.currentRoom] =
-                    rooms[socket.currentRoom].filter(id => id !== socket.id);
-
-                if (rooms[socket.currentRoom].length === 0) {
-                    delete rooms[socket.currentRoom];
-                    console.log(`Room ${socket.currentRoom} is now empty and removed.`);
-                }
-            }
-        }
-    });
+    socket.on('disconnect', () => leaveCurrentRoom());
 });
 
-// --- Start server ---
-server.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-    console.log(`Access the app at http://localhost:${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));

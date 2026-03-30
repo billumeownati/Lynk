@@ -1,43 +1,176 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Chat</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lynk</title>
+    
+    <link rel="icon" href="/Lynk.jpg" type="image/jpeg">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    colors: { brand: { 500: '#8b5cf6', 600: '#7c3aed' } },
+                    fontFamily: {
+                        // Poppins for all standard text, Rubik Dirt for headings
+                        sans: ['"Poppins"', 'sans-serif'],
+                        brand: ['"Rubik Dirt"', 'cursive']
+                    }
+                } 
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Imported both Poppins and Rubik Dirt */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Rubik+Dirt&display=swap');
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
+        
+        body { transition: background-color 0.5s ease; }
+        
+        /* High-Opacity Topography Pattern - Light Mode */
+        body.light {
+            background-color: #f8fafc;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='152' height='152' viewBox='0 0 152 152'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='temple' fill='%2364748b' fill-opacity='0.45'%3E%3Cpath d='M152 150v2H0v-2h28v-8H8v-20H0v-2h8V80h42v20h20v42H30v8h90v-8H80v-42h20V80h42v40h8V30h-8v40h-42V50H80V8h40V0h2v8h20v20h8V0h2v150zm-2 0v-28h-8v20h-20v8h28zM82 30v18h18V30H82zm20 18h20v20h18V30h-20V10H82v18h20v20zm0 2v18h18V50h-18zm20-22h18V10h-18v18zm-54 92v-18H50v18h18zm-20-18H28V82H10v38h20v20h38v-18H48v-20zm0-2V82H30v18h18zm-20 22H10v18h18v-18zm54 0v18h38v-20h20V82h-18v20h-20v20H82zm18-20H82v18h18v-18zm2-2h18V82h-18v18zm20 40v-18h18v18h-18zM30 0h-2v8H8v20H0v2h8v40h42V50h20V8H30V0zm20 48h18V30H50v18zm18-20H48v20H28v20H10V30h20V10h38v18zM30 50h18v18H30V50zm-2-40H10v18h18V10z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        
+        /* High-Opacity Topography Pattern - Dark Mode */
+        body.dark {
+            background-color: #0f172a;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='152' height='152' viewBox='0 0 152 152'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='temple' fill='%2364748b' fill-opacity='0.45'%3E%3Cpath d='M152 150v2H0v-2h28v-8H8v-20H0v-2h8V80h42v20h20v42H30v8h90v-8H80v-42h20V80h42v40h8V30h-8v40h-42V50H80V8h40V0h2v8h20v20h8V0h2v150zm-2 0v-28h-8v20h-20v8h28zM82 30v18h18V30H82zm20 18h20v20h18V30h-20V10H82v18h20v20zm0 2v18h18V50h-18zm20-22h18V10h-18v18zm-54 92v-18H50v18h18zm-20-18H28V82H10v38h20v20h38v-18H48v-20zm0-2V82H30v18h18zm-20 22H10v18h18v-18zm54 0v18h38v-20h20V82h-18v20h-20v20H82zm18-20H82v18h18v-18zm2-2h18V82h-18v18zm20 40v-18h18v18h-18zM30 0h-2v8H8v20H0v2h8v40h42V50h20V8H30V0zm20 48h18V30H50v18zm18-20H48v20H28v20H10V30h20V10h38v18zM30 50h18v18H30V50zm-2-40H10v18h18V10z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+        }
+        .dark .glass-panel {
+            background: rgba(30, 41, 59, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+        }
+    </style>
 </head>
-<body>
-    <div id="app-container">
-        <h1>Real-Time Chat App</h1>
+<body class="dark min-h-screen flex flex-col font-sans text-gray-800 dark:text-gray-100 overflow-hidden relative">
 
-        <div id="room-selection">
-            <h2>Join a Chat Room</h2>
-            <div class="input-group">
-                <label for="username-input">Username:</label>
-                <input type="text" id="username-input" placeholder="Enter your username" required>
+    <div id="global-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 transform scale-95 transition-transform duration-300 border border-gray-100 dark:border-gray-700" id="global-modal-content">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2" id="modal-title">
+                    <i class="fa-solid fa-circle-exclamation text-brand-500"></i> Alert
+                </h3>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
             </div>
-            <div class="input-group">
-                 <label for="room-input">Room Code:</label>
-                <input type="text" id="room-input" placeholder="Enter room code to join or create" required>
-            </div>
-            <button id="join-button">Join Room</button>
-            <p id="join-error" class="error-message"></p>
+            <p class="text-gray-600 dark:text-gray-300 text-sm mb-6 leading-relaxed" id="modal-message"></p>
+            <button id="modal-ok-btn" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-2.5 px-4 rounded-xl transition-colors shadow-md">Okay</button>
         </div>
+    </div>
 
-        <div id="chat-area" style="display: none;">
-            <h2 id="room-title">Chat Room: <span></span></h2>
-            <p id="welcome-message"></p>
+    <div class="w-full p-4 sm:p-6 flex justify-between items-center relative z-10">
+        <div class="flex items-center gap-3">
+            <img src="/Lynk.jpg" alt="Lynk Logo" class="w-10 h-10 rounded-xl object-cover shadow-lg border border-gray-200 dark:border-gray-700">
+            <h1 class="text-3xl font-brand tracking-tight text-gray-800 dark:text-white drop-shadow-sm mt-1">Lynk</h1>
+        </div>
+        <button id="theme-toggle" class="px-5 py-2.5 rounded-full bg-white/60 dark:bg-gray-800/60 backdrop-blur-md text-gray-800 dark:text-white shadow-lg hover:shadow-xl transition-all flex items-center justify-center border border-white/50 dark:border-gray-700/50 gap-2 font-bold text-sm">
+            <i class="fa-solid fa-moon text-lg" id="theme-icon"></i>
+            <span id="theme-text">Dark Mode</span>
+        </button>
+    </div>
 
-            <div id="messages-container">
-                <ul id="messages"></ul>
+    <div class="flex-grow flex items-center justify-center p-4 h-[calc(100vh-100px)] relative z-10">
+        <div id="app-container" class="glass-panel w-full max-w-xl h-full max-h-[650px] rounded-3xl flex flex-col transition-all duration-300 relative overflow-hidden">
+            
+            <div id="setup-area" class="p-6 sm:p-10 flex-grow flex flex-col justify-center overflow-y-auto">
+                <div class="text-center mb-8 flex flex-col items-center">
+                    <img src="/Lynk.jpg" alt="Lynk Logo" class="w-20 h-20 rounded-2xl object-cover shadow-lg mb-4 border border-gray-200 dark:border-gray-700">
+                    <h2 class="text-4xl font-brand dark:text-white tracking-tight">Lynk</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium font-sans">End-to-End encrypted &bull; Anonymous</p>
+                </div>
+
+                <div class="flex mb-6 border-b border-gray-200 dark:border-gray-700">
+                    <button id="tab-join" class="flex-1 pb-3 text-center font-bold text-brand-600 border-b-2 border-brand-600 transition-colors">Join</button>
+                    <button id="tab-create" class="flex-1 pb-3 text-center font-bold text-gray-400 dark:text-gray-500 hover:text-brand-500 transition-colors border-b-2 border-transparent">Create</button>
+                </div>
+
+                <div class="space-y-5">
+                    <div>
+                        <input type="text" id="username-input" placeholder="Display Name (Optional)" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all dark:text-white shadow-sm font-medium">
+                    </div>
+
+                    <div id="room-input-container">
+                        <input type="text" id="room-input" inputmode="numeric" pattern="[0-9]*" placeholder="Enter 6-digit Code" maxlength="6" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-lg tracking-widest text-center font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all dark:text-white shadow-sm placeholder-gray-400">
+                    </div>
+
+                    <div id="create-room-ui" class="hidden">
+                        <div class="flex items-center p-3 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-800/30 mb-2">
+                            <input type="checkbox" id="require-password" class="w-5 h-5 text-brand-600 rounded border-gray-300 focus:ring-brand-500 bg-white dark:bg-gray-800">
+                            <label for="require-password" class="ml-3 text-sm font-semibold text-brand-700 dark:text-brand-300">Protect with password</label>
+                        </div>
+                    </div>
+
+                    <div id="password-container">
+                        <input type="password" id="password-input" placeholder="Password (if any)" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all dark:text-white shadow-sm font-medium">
+                    </div>
+                    
+                    <button id="action-button" class="w-full bg-gradient-to-r from-brand-500 to-pink-500 hover:from-brand-600 hover:to-pink-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] mt-2">
+                        Enter Lynk
+                    </button>
+                </div>
             </div>
 
-            <form id="message-form">
-                 <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off" required>
-                 <button type="submit" id="send-button">Send</button>
-            </form>
-            <button id="leave-button">Leave Room</button>
+            <div id="chat-area" class="hidden flex-col h-full w-full">
+                <div class="bg-white/80 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700 p-3 sm:p-4 flex justify-between items-center gap-3 backdrop-blur-md">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-bold text-gray-800 dark:text-gray-100 text-sm sm:text-base font-sans">Code: 
+                            <span id="room-code-display" class="font-mono text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/40 px-2 py-1 rounded tracking-widest">••••••</span>
+                        </h2>
+                        <button id="toggle-code-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1" title="Show/Hide">
+                            <i class="fa-solid fa-eye" id="eye-icon"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        <button id="share-button" class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors shadow-sm">
+                            <i class="fa-solid fa-share-nodes"></i>
+                        </button>
+                        <button id="leave-button" class="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-100 dark:border-red-800/30 px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors shadow-sm">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="messages-container" class="flex-grow p-4 overflow-y-auto flex flex-col space-y-4"></div>
+
+                <div class="p-3 sm:p-4 bg-white/80 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 backdrop-blur-md">
+                    <form id="message-form" class="flex gap-2 items-center">
+                        <input type="text" id="message-input" placeholder="Message..." autocomplete="off" required class="flex-grow px-4 py-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full focus:ring-2 focus:ring-brand-500 outline-none transition-all dark:text-white shadow-inner font-sans text-base">
+                        <button type="submit" class="bg-gradient-to-r from-brand-500 to-pink-500 hover:from-brand-600 hover:to-pink-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg transition-transform transform hover:scale-105 shrink-0">
+                            <i class="fa-solid fa-paper-plane text-lg -ml-1"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
         </div>
+    </div>
+
+    <div class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-10 pointer-events-none px-5 py-2 rounded-full bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-white/50 dark:border-gray-700/50 shadow-lg">
+        <span class="font-brand text-transparent bg-clip-text bg-gradient-to-r from-brand-500 to-pink-500 text-sm sm:text-base drop-shadow-md opacity-100">
+            Made by BiLLuMiNaTi
+        </span>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

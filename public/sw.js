@@ -1,6 +1,7 @@
 const CACHE_NAME = 'lynk-cache-v1';
 const urlsToCache = [
   '/',
+  '/chat',
   '/index.html',
   '/script.js',
   '/Lynk.jpg',

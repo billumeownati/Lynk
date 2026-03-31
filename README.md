@@ -3,8 +3,6 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Try_It_Now-brightgreen.svg)](https://lynk.debz.in)
 
-Lynk is an open-source, ephemeral communication platform...
-
 Lynk is an open-source, ephemeral communication platform. It features end-to-end encrypted text chat, peer-to-peer voice channels, and screen sharing. It requires no database, stores no chat logs, and is designed to run efficiently on a single Node.js instance.
 
 ## Features

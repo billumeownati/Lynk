@@ -245,16 +245,16 @@
                             <div id="typing-indicator" class="px-5 h-5 text-[10px] italic font-bold text-brand-600 dark:text-brand-400 opacity-0 transition-opacity drop-shadow-sm shrink-0"></div>
 
                             <div class="p-3 sm:p-5 bg-white/30 dark:bg-black/20 border-t border-white/30 dark:border-white/10 backdrop-blur-md flex flex-col gap-2 shrink-0">
-                                <div class="flex gap-4 px-2 text-gray-600 dark:text-gray-300 text-base">
+                                <div class="flex gap-3 sm:gap-4 px-1 sm:px-2 text-gray-600 dark:text-gray-300 text-sm sm:text-base">
                                     <button type="button" id="format-bold" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors drop-shadow-sm" title="Bold"><i class="fa-solid fa-bold"></i></button>
                                     <button type="button" id="format-italic" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors drop-shadow-sm" title="Italic"><i class="fa-solid fa-italic"></i></button>
                                     <button type="button" id="format-code" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors drop-shadow-sm" title="Code Block"><i class="fa-solid fa-code"></i></button>
                                 </div>
 
-                                <form id="message-form" class="flex gap-3 items-center">
-                                    <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" required class="flex-grow px-5 py-4 bg-white/60 dark:bg-black/40 border border-white/50 dark:border-white/10 rounded-full focus:ring-2 focus:ring-brand-500 outline-none transition-all shadow-inner font-sans text-lg text-gray-900 dark:text-white placeholder-gray-600 dark:placeholder-gray-400 backdrop-blur-md">
-                                    <button type="submit" class="bg-gradient-to-r from-brand-500 to-pink-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-transform transform active:scale-95 shrink-0 border border-white/20">
-                                        <i class="fa-solid fa-paper-plane text-xl -ml-1"></i>
+                                <form id="message-form" class="flex gap-2 sm:gap-3 items-center">
+                                    <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" required class="flex-grow min-w-0 px-4 py-3 sm:px-5 sm:py-4 bg-white/60 dark:bg-black/40 border border-white/50 dark:border-white/10 rounded-full focus:ring-2 focus:ring-brand-500 outline-none transition-all shadow-inner font-sans text-base sm:text-lg text-gray-900 dark:text-white placeholder-gray-600 dark:placeholder-gray-400 backdrop-blur-md">
+                                    <button type="submit" class="bg-gradient-to-r from-brand-500 to-pink-500 text-white rounded-full w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center shadow-lg transition-transform transform active:scale-95 shrink-0 border border-white/20">
+                                        <i class="fa-solid fa-paper-plane text-lg sm:text-xl -ml-0.5 sm:-ml-1"></i>
                                     </button>
                                 </form>
                             </div>

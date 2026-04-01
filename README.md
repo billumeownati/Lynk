@@ -8,10 +8,11 @@ Lynk is an open-source, ephemeral communication platform. It features end-to-end
 ## Features
 
 * **End-to-End Encrypted Chat:** Text messages are encrypted client-side using AES (`crypto-js`). The encryption key is either the room code or a custom password. Keys never touch the server.
-* **Peer-to-Peer Voice Lounge:** WebRTC mesh networking for direct, low-latency audio communication. Includes local mute and deafen controls.
-* **Screen Sharing:** Native display capture integrated directly into the WebRTC stream, featuring a picture-in-picture UI with full-screen support.
+* **Peer-to-Peer Voice & Video Chat:** WebRTC mesh networking for direct, low-latency audio and video communication. Includes dynamic tiled video grids, pinning to focus on specific users, and local mute/deafen controls.
+* **Live Screen Sharing:** Native display capture integrated directly into the WebRTC stream. Includes resolution quality selection, a floating mini-player UI, and full-screen support.
+* **Hardware Management:** Built-in settings modal to hot-swap cameras, microphones, and speaker outputs on the fly. 
 * **Ephemeral & Anonymous:** No user accounts, no database, and no persistent state. Once a room is empty, it ceases to exist.
-* **Progressive Web App (PWA):** Fully installable on mobile and desktop with offline caching and a custom boot screen.
+* **Progressive Web App (PWA):** Fully installable on mobile and desktop with offline caching and a custom animated boot screen.
 * **Glassmorphism UI:** Built with Tailwind CSS, featuring fully responsive light and dark modes.
 
 ## Tech Stack

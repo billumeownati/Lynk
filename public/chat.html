@@ -68,6 +68,10 @@
         .markdown-content code { background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 4px; font-family: monospace; }
         .dark .markdown-content code { background: rgba(0,0,0,0.3); }
         .markdown-content p { margin: 0; display: inline-block; }
+
+        video::-webkit-media-controls { 
+            display: none !important; 
+        }
     </style>
 </head>
 <body class="dark fixed inset-0 flex flex-col font-sans text-gray-800 dark:text-gray-100 overflow-hidden">
@@ -116,11 +120,29 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="flex flex-col gap-2">
+                        <label class="font-bold text-gray-800 dark:text-gray-200 text-sm pl-1"><i class="fa-solid fa-camera w-6 text-center text-gray-500"></i> Camera</label>
+                        <select id="cam-select" class="w-full px-3 py-2.5 rounded-xl bg-white/50 dark:bg-black/40 border border-white/50 dark:border-white/10 text-sm font-semibold outline-none dark:text-white shadow-inner cursor-pointer text-ellipsis overflow-hidden">
+                            <option>Loading...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex flex-col gap-2">
+                        <label class="font-bold text-gray-800 dark:text-gray-200 text-sm pl-1"><i class="fa-solid fa-desktop w-6 text-center text-gray-500"></i> Screen Share Quality</label>
+                        <select id="screen-quality" class="w-full px-3 py-2.5 rounded-xl bg-white/50 dark:bg-black/40 border border-white/50 dark:border-white/10 text-sm font-semibold outline-none dark:text-white shadow-inner cursor-pointer">
+                            <option value="720" class="text-gray-800 bg-white dark:bg-gray-800 dark:text-white">720p (Smooth)</option>
+                            <option value="1080" class="text-gray-800 bg-white dark:bg-gray-800 dark:text-white" selected>1080p (HD)</option>
+                            <option value="1440" class="text-gray-800 bg-white dark:bg-gray-800 dark:text-white">1440p (2K)</option>
+                            <option value="2160" class="text-gray-800 bg-white dark:bg-gray-800 dark:text-white">2160p (4K)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
                         <label class="font-bold text-gray-800 dark:text-gray-200 text-sm pl-1"><i class="fa-solid fa-microphone w-6 text-center text-gray-500"></i> Microphone</label>
                         <select id="mic-select" class="w-full px-3 py-2.5 rounded-xl bg-white/50 dark:bg-black/40 border border-white/50 dark:border-white/10 text-sm font-semibold outline-none dark:text-white shadow-inner cursor-pointer text-ellipsis overflow-hidden">
                             <option>Loading...</option>
                         </select>
                     </div>
+                    
                     <div class="flex flex-col gap-2">
                         <label class="font-bold text-gray-800 dark:text-gray-200 text-sm pl-1"><i class="fa-solid fa-headphones w-6 text-center text-gray-500"></i> Output Device</label>
                         <select id="speaker-select" class="w-full px-3 py-2.5 rounded-xl bg-white/50 dark:bg-black/40 border border-white/50 dark:border-white/10 text-sm font-semibold outline-none dark:text-white shadow-inner cursor-pointer text-ellipsis overflow-hidden">
@@ -187,8 +209,8 @@
 
             <div id="chat-area" class="hidden h-full w-full relative">
                 
-                <div class="flex-grow flex flex-col h-full w-full md:w-auto overflow-hidden">
-                    <div class="bg-white/30 dark:bg-black/20 border-b border-white/30 dark:border-white/10 p-3 sm:p-4 flex justify-between items-center backdrop-blur-md z-10 shrink-0">
+                <div class="flex-grow flex flex-col h-full w-full md:w-auto overflow-hidden relative">
+                    <div class="bg-white/30 dark:bg-black/20 border-b border-white/30 dark:border-white/10 p-3 sm:p-4 flex justify-between items-center backdrop-blur-md z-20 shrink-0">
                         <div class="flex items-center gap-3">
                             <div class="flex flex-col">
                                 <h2 class="font-bold text-gray-900 dark:text-gray-100 text-sm sm:text-base font-sans leading-tight">Code: 
@@ -215,27 +237,38 @@
                         </div>
                     </div>
 
-                    <div id="messages-container" class="flex-grow px-5 py-4 sm:px-8 sm:py-6 overflow-y-auto overflow-x-hidden flex flex-col space-y-4 break-words break-all min-h-0"></div>
+                    <div id="content-views" class="flex-grow relative w-full h-full min-h-0 overflow-hidden bg-transparent">
+                        
+                        <div id="text-chat-view" class="absolute inset-0 flex flex-col w-full h-full transition-opacity duration-300 z-10">
+                            <div id="messages-container" class="flex-grow px-5 py-4 sm:px-8 sm:py-6 overflow-y-auto overflow-x-hidden flex flex-col space-y-4 break-words break-all min-h-0"></div>
 
-                    <div id="typing-indicator" class="px-5 h-5 text-[10px] italic font-bold text-brand-600 dark:text-brand-400 opacity-0 transition-opacity drop-shadow-sm shrink-0"></div>
+                            <div id="typing-indicator" class="px-5 h-5 text-[10px] italic font-bold text-brand-600 dark:text-brand-400 opacity-0 transition-opacity drop-shadow-sm shrink-0"></div>
 
-                    <div class="p-3 sm:p-5 bg-white/30 dark:bg-black/20 border-t border-white/30 dark:border-white/10 backdrop-blur-md flex flex-col gap-2 shrink-0">
-                        <div class="flex gap-4 px-2 text-gray-600 dark:text-gray-300 text-base">
-                            <button type="button" id="format-bold" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors drop-shadow-sm" title="Bold"><i class="fa-solid fa-bold"></i></button>
-                            <button type="button" id="format-italic" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors drop-shadow-sm" title="Italic"><i class="fa-solid fa-italic"></i></button>
-                            <button type="button" id="format-code" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors drop-shadow-sm" title="Code Block"><i class="fa-solid fa-code"></i></button>
+                            <div class="p-3 sm:p-5 bg-white/30 dark:bg-black/20 border-t border-white/30 dark:border-white/10 backdrop-blur-md flex flex-col gap-2 shrink-0">
+                                <div class="flex gap-4 px-2 text-gray-600 dark:text-gray-300 text-base">
+                                    <button type="button" id="format-bold" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors drop-shadow-sm" title="Bold"><i class="fa-solid fa-bold"></i></button>
+                                    <button type="button" id="format-italic" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors drop-shadow-sm" title="Italic"><i class="fa-solid fa-italic"></i></button>
+                                    <button type="button" id="format-code" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors drop-shadow-sm" title="Code Block"><i class="fa-solid fa-code"></i></button>
+                                </div>
+
+                                <form id="message-form" class="flex gap-3 items-center">
+                                    <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" required class="flex-grow px-5 py-4 bg-white/60 dark:bg-black/40 border border-white/50 dark:border-white/10 rounded-full focus:ring-2 focus:ring-brand-500 outline-none transition-all shadow-inner font-sans text-lg text-gray-900 dark:text-white placeholder-gray-600 dark:placeholder-gray-400 backdrop-blur-md">
+                                    <button type="submit" class="bg-gradient-to-r from-brand-500 to-pink-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-transform transform active:scale-95 shrink-0 border border-white/20">
+                                        <i class="fa-solid fa-paper-plane text-xl -ml-1"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </div>
 
-                        <form id="message-form" class="flex gap-3 items-center">
-                            <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" required class="flex-grow px-5 py-4 bg-white/60 dark:bg-black/40 border border-white/50 dark:border-white/10 rounded-full focus:ring-2 focus:ring-brand-500 outline-none transition-all shadow-inner font-sans text-lg text-gray-900 dark:text-white placeholder-gray-600 dark:placeholder-gray-400 backdrop-blur-md">
-                            <button type="submit" class="bg-gradient-to-r from-brand-500 to-pink-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-transform transform active:scale-95 shrink-0 border border-white/20">
-                                <i class="fa-solid fa-paper-plane text-xl -ml-1"></i>
-                            </button>
-                        </form>
+                        <div id="video-chat-view" class="absolute inset-0 flex flex-col w-full h-full bg-black/60 backdrop-blur-sm hidden transition-opacity duration-300 p-2 sm:p-4 z-10">
+                            <div id="video-grid" class="w-full h-full grid gap-3 auto-rows-fr grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 relative transition-all">
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
-                <div id="users-sidebar" class="absolute md:relative right-0 top-0 bottom-0 w-72 border-l border-white/30 dark:border-white/10 bg-white/40 dark:bg-black/40 backdrop-blur-2xl flex flex-col transform translate-x-full md:translate-x-0 transition-transform duration-300 z-20 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.15)] md:shadow-none">
+                <div id="users-sidebar" class="absolute md:relative right-0 top-0 bottom-0 w-72 border-l border-white/30 dark:border-white/10 bg-white/40 dark:bg-black/40 backdrop-blur-2xl flex flex-col transform translate-x-full md:translate-x-0 transition-transform duration-300 z-30 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.15)] md:shadow-none">
                     
                     <div class="p-5 border-b border-white/30 dark:border-white/10 flex justify-between items-center bg-white/20 dark:bg-black/20 shrink-0">
                         <h3 class="font-bold text-base text-gray-900 dark:text-gray-100 uppercase tracking-wider drop-shadow-sm"><i class="fa-solid fa-users mr-2 text-brand-600 dark:text-brand-400"></i> Participants</h3>
@@ -247,19 +280,29 @@
                             <span class="text-xs font-extrabold text-gray-700 dark:text-gray-300 uppercase tracking-widest flex items-center"><i class="fa-solid fa-tower-broadcast mr-2 text-brand-500 animate-pulse"></i> Voice Lounge</span>
                             
                             <button id="join-vc-btn" class="bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white text-xs px-4 py-2 rounded-lg font-bold transition-transform active:scale-95 shadow-md border border-white/20">Join VC</button>
-                            
-                            <div id="vc-active-controls" class="hidden flex items-center gap-2">
-                                <button id="vc-deafen-btn" class="w-9 h-9 rounded-lg bg-white/60 dark:bg-black/40 border border-white/40 dark:border-white/10 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-sm" title="Deafen"><i class="fa-solid fa-headphones text-sm"></i></button>
-                                <button id="vc-mic-btn" class="w-9 h-9 rounded-lg bg-white/60 dark:bg-black/40 border border-white/40 dark:border-white/10 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-sm" title="Mute Mic"><i class="fa-solid fa-microphone text-sm"></i></button>
-                                <button id="leave-vc-btn" class="w-9 h-9 rounded-lg bg-red-500/80 hover:bg-red-500 text-white flex items-center justify-center transition-colors shadow-sm border border-red-400/50" title="Disconnect"><i class="fa-solid fa-phone-slash text-sm"></i></button>
-                            </div>
+                        </div>
+                        <div id="vc-active-controls" class="hidden flex items-center gap-1.5 flex-wrap mb-3 justify-end">
+                            <button id="vc-mode-btn" class="w-9 h-9 rounded-lg bg-white/60 dark:bg-black/40 border border-white/40 dark:border-white/10 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-sm" title="Toggle View"><i class="fa-solid fa-border-all text-sm"></i></button>
+                            <button id="vc-share-btn" class="w-9 h-9 rounded-lg bg-white/60 dark:bg-black/40 border border-white/40 dark:border-white/10 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-sm" title="Share Screen"><i class="fa-solid fa-desktop text-sm"></i></button>
+                            <button id="vc-cam-btn" class="w-9 h-9 rounded-lg bg-white/60 dark:bg-black/40 border border-white/40 dark:border-white/10 flex items-center justify-center text-red-500 dark:text-red-400 hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-sm" title="Toggle Camera"><i class="fa-solid fa-video-slash text-sm"></i></button>
+                            <button id="vc-deafen-btn" class="w-9 h-9 rounded-lg bg-white/60 dark:bg-black/40 border border-white/40 dark:border-white/10 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-sm" title="Deafen"><i class="fa-solid fa-headphones text-sm"></i></button>
+                            <button id="vc-mic-btn" class="w-9 h-9 rounded-lg bg-white/60 dark:bg-black/40 border border-white/40 dark:border-white/10 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-sm" title="Mute Mic"><i class="fa-solid fa-microphone text-sm"></i></button>
+                            <button id="leave-vc-btn" class="w-9 h-9 rounded-lg bg-red-500/80 hover:bg-red-500 text-white flex items-center justify-center transition-colors shadow-sm border border-red-400/50" title="Disconnect"><i class="fa-solid fa-phone-slash text-sm"></i></button>
                         </div>
                         <ul id="vc-users-list" class="space-y-2 min-h-[10px]">
-                            </ul>
+                        </ul>
+
+                        <div id="screen-share-container" class="hidden mt-3 w-full h-24 bg-black/80 rounded-xl relative overflow-hidden group border border-white/20 shadow-lg cursor-pointer transform hover:scale-[1.02] transition-all" title="Click to Fullscreen">
+                            <video id="shared-video" autoplay playsinline disablepictureinpicture controlsList="nodownload noplaybackrate" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity blur-[1px] group-hover:blur-none pointer-events-none"></video>
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span id="screen-share-label" class="bg-black/70 text-white text-[10px] px-3 py-1.5 rounded-full font-bold backdrop-blur-md border border-white/10 shadow-lg"><i class="fa-solid fa-desktop mr-1.5 text-brand-500"></i> Show Stream</span>
+                            </div>
+                        </div>
+
                     </div>
 
                     <ul id="users-list" class="flex-grow p-4 space-y-3 overflow-y-auto">
-                        </ul>
+                    </ul>
                 </div>
 
             </div>
@@ -278,7 +321,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
     <script>
-        // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js').then(registration => {

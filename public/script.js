@@ -1,9 +1,6 @@
-// public/script.js
 document.addEventListener('DOMContentLoaded', () => {
-    // Connect to the same server that served this HTML file
     const socket = io();
 
-    // DOM Elements
     const setupArea = document.getElementById('setup-area');
     const chatArea = document.getElementById('chat-area');
     const tabJoin = document.getElementById('tab-join');
@@ -22,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const roomCodeDisplay = document.getElementById('room-code-display');
     const eyeIcon = document.getElementById('eye-icon');
     
-    // Sidebar Elements
     const usersSidebar = document.getElementById('users-sidebar');
     const usersList = document.getElementById('users-list');
     const userCountDisplay = document.getElementById('user-count');
@@ -30,16 +26,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeSidebarBtn = document.getElementById('close-sidebar-btn');
     const mobileOnlineToggle = document.getElementById('mobile-online-toggle');
 
-    // Voice Chat Elements
     const joinVcBtn = document.getElementById('join-vc-btn');
     const vcActiveControls = document.getElementById('vc-active-controls');
+    const vcModeBtn = document.getElementById('vc-mode-btn');
+    const vcCamBtn = document.getElementById('vc-cam-btn');
     const vcMicBtn = document.getElementById('vc-mic-btn');
     const vcDeafenBtn = document.getElementById('vc-deafen-btn');
+    const vcShareBtn = document.getElementById('vc-share-btn');
+    const screenQuality = document.getElementById('screen-quality');
+    const screenShareContainer = document.getElementById('screen-share-container');
+    const sharedVideo = document.getElementById('shared-video');
+    const screenShareLabel = document.getElementById('screen-share-label');
     const leaveVcBtn = document.getElementById('leave-vc-btn');
     const vcUsersList = document.getElementById('vc-users-list');
     const audioContainer = document.getElementById('audio-container');
+    const videoGrid = document.getElementById('video-grid');
 
-    // Settings Modal Elements
+    const textChatView = document.getElementById('text-chat-view');
+    const videoChatView = document.getElementById('video-chat-view');
+
     const settingsBtn = document.getElementById('settings-btn');
     const settingsModal = document.getElementById('settings-modal');
     const closeSettingsBtn = document.getElementById('close-settings-btn');
@@ -47,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeIcon = document.getElementById('theme-icon');
     const themeText = document.getElementById('theme-text');
     const soundSelect = document.getElementById('sound-select');
+    const camSelect = document.getElementById('cam-select');
     const micSelect = document.getElementById('mic-select');
     const speakerSelect = document.getElementById('speaker-select');
     const muteToggle = document.getElementById('mute-toggle');
@@ -64,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModalBtn = document.getElementById('close-modal-btn');
     const modalOkBtn = document.getElementById('modal-ok-btn');
 
-    // State Variables
     let currentMode = 'join'; 
     let currentUsername = null;
     let currentRoom = null;
@@ -72,7 +77,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let isCodeVisible = false;
     let typingTimeout = null;
 
-    // --- Audio Setup ---
+    let localStream = null;
+    let localCamStream = null;
+    let screenStream = null;
+    let peerConnections = {}; 
+    let isInVC = false;
+    let isMicMuted = false;
+    let isDeafened = false;
+    let isCamOn = false;
+    let currentChatMode = 'text'; 
+    let activeScreenStreamId = null;
+    let pinnedUserId = null;
+
+    const iceConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
     const savedSound = localStorage.getItem('lynksound') || '/notification.mp3';
     const popSound = new Audio(savedSound);
     if(soundSelect) soundSelect.value = savedSound; 
@@ -97,10 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMuteUI();
     });
 
-    // --- Settings Modal Logic ---
     settingsBtn.addEventListener('click', () => {
         settingsModal.classList.remove('hidden');
-        void settingsModal.offsetWidth; // trigger reflow
+        void settingsModal.offsetWidth; 
         settingsModal.classList.remove('opacity-0');
         settingsModal.firstElementChild.classList.remove('scale-95');
         populateDevices(); 
@@ -112,14 +129,25 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => settingsModal.classList.add('hidden'), 300);
     });
 
-    // --- Device Enumeration for WebRTC ---
     async function populateDevices() {
         try {
-            await navigator.mediaDevices.getUserMedia({ audio: true });
+            const tempAudio = await navigator.mediaDevices.getUserMedia({ audio: true });
+            tempAudio.getTracks().forEach(t => t.stop());
+        } catch(err) { console.warn("Audio perm missing/denied", err); }
+
+        try {
+            const tempVideo = await navigator.mediaDevices.getUserMedia({ video: true });
+            tempVideo.getTracks().forEach(t => t.stop());
+        } catch(err) { console.warn("Video perm missing/denied", err); }
+
+        try {
             const devices = await navigator.mediaDevices.enumerateDevices();
             
             micSelect.innerHTML = '';
             speakerSelect.innerHTML = '';
+            camSelect.innerHTML = '';
+
+            let hasMic = false, hasCam = false, hasSpeaker = false;
 
             devices.forEach(device => {
                 const option = document.createElement('option');
@@ -127,12 +155,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 option.text = device.label || `${device.kind} (${device.deviceId.slice(0,5)})`;
                 option.className = "text-gray-800 bg-white dark:bg-gray-800 dark:text-white";
 
-                if (device.kind === 'audioinput') {
-                    micSelect.appendChild(option);
-                } else if (device.kind === 'audiooutput') {
-                    speakerSelect.appendChild(option);
-                }
+                if (device.kind === 'audioinput') { micSelect.appendChild(option); hasMic = true; }
+                else if (device.kind === 'audiooutput') { speakerSelect.appendChild(option); hasSpeaker = true; }
+                else if (device.kind === 'videoinput') { camSelect.appendChild(option); hasCam = true; }
             });
+
+            if (!hasMic) micSelect.innerHTML = '<option>No Microphone Found</option>';
+            if (!hasSpeaker) speakerSelect.innerHTML = '<option>Default Speaker</option>';
+            if (!hasCam) camSelect.innerHTML = '<option>No Camera Found</option>';
 
             if (localStorage.getItem('lynkMic') && [...micSelect.options].some(o => o.value === localStorage.getItem('lynkMic'))) {
                 micSelect.value = localStorage.getItem('lynkMic');
@@ -140,17 +170,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('lynkSpeaker') && [...speakerSelect.options].some(o => o.value === localStorage.getItem('lynkSpeaker'))) {
                 speakerSelect.value = localStorage.getItem('lynkSpeaker');
             }
+            if (localStorage.getItem('lynkCam') && [...camSelect.options].some(o => o.value === localStorage.getItem('lynkCam'))) {
+                camSelect.value = localStorage.getItem('lynkCam');
+            }
         } catch (err) {
-            console.error("Error fetching devices.", err);
-            micSelect.innerHTML = '<option>Permission Denied/Unavailable</option>';
-            speakerSelect.innerHTML = '<option>Permission Denied/Unavailable</option>';
+            console.error("Error enumerating devices.", err);
         }
     }
 
     micSelect.addEventListener('change', async (e) => {
         const deviceId = e.target.value;
         localStorage.setItem('lynkMic', deviceId);
-        
         if (isInVC && localStream) {
             try {
                 const newStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId } } });
@@ -170,6 +200,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    camSelect.addEventListener('change', async (e) => {
+        const deviceId = e.target.value;
+        localStorage.setItem('lynkCam', deviceId);
+        if (isCamOn && localCamStream) {
+            try {
+                const newStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } });
+                const newTrack = newStream.getVideoTracks()[0];
+                
+                localCamStream.getVideoTracks().forEach(t => t.stop());
+                localCamStream = newStream;
+                
+                for (let id in peerConnections) {
+                    const sender = peerConnections[id].getSenders().find(s => s.track && s.track.kind === 'video' && (!screenStream || s.track !== screenStream.getVideoTracks()[0]));
+                    if (sender) sender.replaceTrack(newTrack);
+                }
+                const localVideoEl = document.getElementById(`video-cam-${socket.id}`);
+                if (localVideoEl) localVideoEl.srcObject = localCamStream;
+            } catch (err) {
+                console.error("Failed to swap cam", err);
+            }
+        }
+    });
+
     speakerSelect.addEventListener('change', (e) => {
         const deviceId = e.target.value;
         localStorage.setItem('lynkSpeaker', deviceId);
@@ -180,20 +233,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    vcModeBtn.addEventListener('click', () => {
+        if (currentChatMode === 'text') {
+            currentChatMode = 'video';
+            textChatView.classList.add('hidden');
+            videoChatView.classList.remove('hidden');
+            vcModeBtn.innerHTML = '<i class="fa-solid fa-message text-sm"></i>';
+            vcModeBtn.title = "Switch to Text View";
+        } else {
+            currentChatMode = 'text';
+            videoChatView.classList.add('hidden');
+            textChatView.classList.remove('hidden');
+            vcModeBtn.innerHTML = '<i class="fa-solid fa-border-all text-sm"></i>';
+            vcModeBtn.title = "Switch to Video View";
+        }
+    });
 
-    // --- WebRTC Voice Chat Logic ---
-    let localStream = null;
-    let peerConnections = {}; 
-    let isInVC = false;
-    let isMicMuted = false;
-    let isDeafened = false;
-
-    const iceConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    screenShareContainer.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            if (sharedVideo.requestFullscreen) sharedVideo.requestFullscreen();
+            else if (sharedVideo.webkitRequestFullscreen) sharedVideo.webkitRequestFullscreen();
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        }
+    });
 
     joinVcBtn.addEventListener('click', async () => {
         try {
             joinVcBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            
             const savedMic = localStorage.getItem('lynkMic');
             const constraints = savedMic ? { audio: { deviceId: { exact: savedMic } } } : { audio: true };
             
@@ -214,6 +282,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     leaveVcBtn.addEventListener('click', () => {
         isInVC = false;
+        
+        if (isCamOn) vcCamBtn.click();
+        stopScreenShare();
+        
+        if (localCamStream) {
+            localCamStream.getTracks().forEach(t => t.stop());
+            localCamStream = null;
+        }
+        
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
@@ -229,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
         vcActiveControls.classList.remove('flex');
         vcActiveControls.classList.add('hidden');
         
+        if (currentChatMode === 'video') vcModeBtn.click();
         socket.emit('leaveVC');
     });
 
@@ -247,6 +325,55 @@ document.addEventListener('DOMContentLoaded', () => {
             vcMicBtn.classList.replace('dark:text-red-400', 'dark:text-gray-200');
         }
         socket.emit('toggleMicState', isMicMuted);
+    });
+
+    vcCamBtn.addEventListener('click', async () => {
+        if (!isInVC) return;
+        isCamOn = !isCamOn;
+
+        if (isCamOn) {
+            try {
+                const savedCam = localStorage.getItem('lynkCam');
+                const constraints = savedCam ? { video: { deviceId: { exact: savedCam } } } : { video: true };
+                localCamStream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                const videoTrack = localCamStream.getVideoTracks()[0];
+                for (let id in peerConnections) {
+                    peerConnections[id].addTrack(videoTrack, localCamStream);
+                }
+                
+                vcCamBtn.innerHTML = '<i class="fa-solid fa-video text-sm"></i>';
+                vcCamBtn.classList.replace('text-red-500', 'text-brand-500');
+                vcCamBtn.classList.replace('dark:text-red-400', 'dark:text-brand-400');
+                
+                const localVideoEl = document.getElementById(`video-cam-${socket.id}`);
+                if (localVideoEl) localVideoEl.srcObject = localCamStream;
+                
+                socket.emit('toggleCamState', true);
+                if (currentChatMode === 'text') vcModeBtn.click();
+                
+            } catch (err) {
+                console.error(err);
+                isCamOn = false;
+                showModal("Camera access denied or unavailable.");
+            }
+        } else {
+            if (localCamStream) {
+                const videoTrack = localCamStream.getVideoTracks()[0];
+                videoTrack.stop();
+                for (let id in peerConnections) {
+                    const sender = peerConnections[id].getSenders().find(s => s.track && s.track.kind === 'video' && s.track === videoTrack);
+                    if (sender) peerConnections[id].removeTrack(sender);
+                }
+                localCamStream = null;
+            }
+            
+            vcCamBtn.innerHTML = '<i class="fa-solid fa-video-slash text-sm"></i>';
+            vcCamBtn.classList.replace('text-brand-500', 'text-red-500');
+            vcCamBtn.classList.replace('dark:text-brand-400', 'dark:text-red-400');
+            
+            socket.emit('toggleCamState', false);
+        }
     });
 
     vcDeafenBtn.addEventListener('click', () => {
@@ -268,42 +395,136 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    function stopScreenShare() {
+        if (screenStream) {
+            const tracks = screenStream.getTracks();
+            tracks.forEach(t => t.stop());
+            
+            for (let id in peerConnections) {
+                const senders = peerConnections[id].getSenders();
+                tracks.forEach(track => {
+                    const sender = senders.find(s => s.track === track);
+                    if (sender) peerConnections[id].removeTrack(sender);
+                });
+            }
+            
+            screenStream = null;
+            socket.emit('stopScreenShare');
+            
+            vcShareBtn.classList.replace('text-brand-500', 'text-gray-700');
+            vcShareBtn.classList.replace('dark:text-brand-400', 'dark:text-gray-200');
+            
+            screenShareContainer.classList.add('hidden');
+            sharedVideo.srcObject = null;
+        }
+    }
+
+    vcShareBtn.addEventListener('click', async () => {
+        if (!isInVC) return;
+
+        if (screenStream) {
+            stopScreenShare();
+        } else {
+            try {
+                const idealHeight = parseInt(screenQuality.value) || 1080;
+                screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { height: { ideal: idealHeight }, frameRate: { ideal: 30 } }, 
+                    audio: true 
+                });
+                socket.emit('startScreenShare', screenStream.id);
+                
+                vcShareBtn.classList.replace('text-gray-700', 'text-brand-500');
+                vcShareBtn.classList.replace('dark:text-gray-200', 'dark:text-brand-400');
+
+                screenShareContainer.classList.remove('hidden');
+                sharedVideo.srcObject = screenStream;
+                document.getElementById('screen-share-label').innerHTML = '<i class="fa-solid fa-desktop mr-1.5 text-brand-500"></i> You are sharing';
+
+                screenStream.getTracks().forEach(track => {
+                    for (let id in peerConnections) {
+                        peerConnections[id].addTrack(track, screenStream);
+                    }
+                });
+
+                screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
+
+            } catch (err) {
+                console.error("Screen share cancelled or failed:", err);
+            }
+        }
+    });
+
+    socket.on('screenShareActive', (data) => activeScreenStreamId = data.streamId);
+    
+    socket.on('screenShareStopped', () => {
+        activeScreenStreamId = null;
+        screenShareContainer.classList.add('hidden');
+        sharedVideo.srcObject = null;
+    });
+    
+    socket.on('forceStopShare', () => {
+        if (screenStream) {
+            stopScreenShare();
+            showModal("Someone else started sharing their screen.");
+        }
+    });
+
     function createPeerConnection(targetId, isInitiator) {
         const pc = new RTCPeerConnection(iceConfig);
         peerConnections[targetId] = pc;
 
-        if (localStream) {
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-        }
+        if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        if (localCamStream) localCamStream.getTracks().forEach(track => pc.addTrack(track, localCamStream));
+        if (screenStream) screenStream.getTracks().forEach(track => pc.addTrack(track, screenStream));
 
         pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('webrtc-ice-candidate', { target: targetId, candidate: event.candidate });
-            }
+            if (event.candidate) socket.emit('webrtc-ice-candidate', { target: targetId, candidate: event.candidate });
         };
 
         pc.ontrack = (event) => {
-            let audioEl = document.getElementById(`audio-${targetId}`);
-            if (!audioEl) {
-                audioEl = document.createElement('audio');
-                audioEl.id = `audio-${targetId}`;
-                audioEl.autoplay = true;
-                audioEl.muted = isDeafened; 
-                
-                const savedSpeaker = localStorage.getItem('lynkSpeaker');
-                if (savedSpeaker && typeof audioEl.setSinkId === 'function') {
-                    audioEl.setSinkId(savedSpeaker).catch(console.error);
+            if (event.track.kind === 'video') {
+                if (event.streams[0] && event.streams[0].id === activeScreenStreamId) {
+                    screenShareContainer.classList.remove('hidden');
+                    sharedVideo.srcObject = event.streams[0];
+                    document.getElementById('screen-share-label').innerHTML = '<i class="fa-solid fa-eye text-brand-500 mr-1.5"></i> Viewing Stream';
+                } else {
+                    let camVideoEl = document.getElementById(`video-cam-${targetId}`);
+                    if (camVideoEl) camVideoEl.srcObject = event.streams[0];
                 }
-                
-                audioContainer.appendChild(audioEl);
+            } else if (event.track.kind === 'audio') {
+                let audioId = `audio-${event.track.id}`; 
+                let audioEl = document.getElementById(audioId);
+                if (!audioEl) {
+                    audioEl = document.createElement('audio');
+                    audioEl.id = audioId;
+                    audioEl.autoplay = true;
+                    audioEl.muted = isDeafened; 
+                    
+                    const savedSpeaker = localStorage.getItem('lynkSpeaker');
+                    if (savedSpeaker && typeof audioEl.setSinkId === 'function') {
+                        audioEl.setSinkId(savedSpeaker).catch(console.error);
+                    }
+                    audioContainer.appendChild(audioEl);
+                }
+                audioEl.srcObject = new MediaStream([event.track]);
             }
-            audioEl.srcObject = event.streams[0];
+        };
+
+        pc.onnegotiationneeded = async () => {
+            try {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                socket.emit('webrtc-offer', { target: targetId, offer: offer });
+            } catch (err) {
+                console.error("Renegotiation error:", err);
+            }
         };
 
         pc.onconnectionstatechange = () => {
             if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-                const audioEl = document.getElementById(`audio-${targetId}`);
-                if (audioEl) audioEl.remove();
+                document.querySelectorAll(`audio[id^="audio-"]`).forEach(el => {
+                    if (el.srcObject && el.srcObject.getTracks().some(t => !t.active || t.readyState === 'ended')) el.remove();
+                });
                 if (peerConnections[targetId]) peerConnections[targetId].close();
                 delete peerConnections[targetId];
             }
@@ -327,13 +548,12 @@ document.addEventListener('DOMContentLoaded', () => {
             peerConnections[targetId].close();
             delete peerConnections[targetId];
         }
-        const audioEl = document.getElementById(`audio-${targetId}`);
-        if(audioEl) audioEl.remove();
     });
 
     socket.on('webrtc-offer', async ({ sender, offer }) => {
         if (!isInVC) return;
-        const pc = createPeerConnection(sender, false);
+        let pc = peerConnections[sender];
+        if (!pc) pc = createPeerConnection(sender, false);
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -350,8 +570,41 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate));
     });
 
+    window.togglePin = function(userId) {
+        const tiles = document.querySelectorAll('.video-tile');
+        if (pinnedUserId === userId) {
+            pinnedUserId = null;
+            tiles.forEach(t => {
+                t.className = 'video-tile relative bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center border border-white/10 shadow-lg group transition-all';
+                t.style = '';
+                const btn = t.querySelector('button i');
+                if (btn) btn.className = 'fa-solid fa-expand text-xs';
+            });
+            videoGrid.classList.remove('flex', 'flex-wrap');
+            videoGrid.classList.add('grid');
+        } else {
+            pinnedUserId = userId;
+            videoGrid.classList.remove('grid');
+            videoGrid.classList.add('flex', 'flex-wrap');
+            
+            let offset = 0;
+            tiles.forEach(t => {
+                const btn = t.querySelector('button i');
+                if (t.dataset.userId === userId) {
+                    t.className = 'video-tile absolute inset-0 z-10 w-full h-full bg-gray-900 rounded-xl overflow-hidden shadow-inner transition-all';
+                    t.style = '';
+                    if (btn) btn.className = 'fa-solid fa-compress text-xs';
+                } else {
+                    t.className = 'video-tile absolute z-20 w-32 h-24 rounded-lg overflow-hidden border-2 border-white/20 shadow-2xl cursor-pointer hover:scale-105 transition-all';
+                    t.style.bottom = '1rem';
+                    t.style.right = `${1 + offset * 8.5}rem`;
+                    if (btn) btn.className = 'fa-solid fa-expand text-xs';
+                    offset++;
+                }
+            });
+        }
+    };
 
-    // --- General Logic ---
     const generateFunnyName = () => `${["Sneaky", "Grumpy", "Happy", "Sleepy", "Clumsy"][Math.floor(Math.random()*5)]} ${["Potato", "Ninja", "Panda", "Unicorn", "Goblin"][Math.floor(Math.random()*5)]}`;
 
     function showModal(message) {
@@ -464,9 +717,10 @@ document.addEventListener('DOMContentLoaded', () => {
         usersList.innerHTML = '';
         vcUsersList.innerHTML = '';
 
+        const existingTiles = Array.from(videoGrid.children).map(c => c.dataset.userId);
+
         users.forEach(u => {
             const isMe = u.id === socket.id;
-            
             let badgeHtml = `
                 <li class="flex items-center gap-3 p-2.5 rounded-xl border ${isMe ? 'bg-brand-50/30 dark:bg-brand-900/20 border-brand-200 dark:border-brand-800' : 'bg-white/30 dark:bg-black/20 border-white/30 dark:border-white/5'}">
                     <div class="relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-pink-500 text-white text-sm font-bold shadow-sm shrink-0">
@@ -483,8 +737,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 </li>
             `;
 
-            if (u.inVC) vcUsersList.innerHTML += badgeHtml;
-            else usersList.innerHTML += badgeHtml;
+            if (u.inVC) {
+                vcUsersList.innerHTML += badgeHtml;
+                
+                if (!existingTiles.includes(u.id)) {
+                    const tile = document.createElement('div');
+                    tile.dataset.userId = u.id;
+                    tile.className = 'video-tile relative bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center border border-white/10 shadow-lg group transition-all';
+                    
+                    const video = document.createElement('video');
+                    video.id = `video-cam-${u.id}`;
+                    video.autoplay = true;
+                    video.playsInline = true;
+                    video.className = 'w-full h-full object-cover ' + (u.camOn ? '' : 'hidden');
+                    if (isMe) {
+                        video.muted = true;
+                        video.classList.add('scale-x-[-1]');
+                        if (localCamStream) video.srcObject = localCamStream;
+                    }
+                    
+                    const avatar = document.createElement('img');
+                    avatar.id = `avatar-cam-${u.id}`;
+                    avatar.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`;
+                    avatar.className = 'w-20 h-20 rounded-full object-cover shadow-md ' + (u.camOn ? 'hidden' : '');
+                    
+                    const label = document.createElement('div');
+                    label.id = `label-cam-${u.id}`;
+                    label.className = 'absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1.5 z-10';
+                    label.innerHTML = `<span>${u.username}</span> <i class="fa-solid ${u.micMuted ? 'fa-microphone-slash text-red-500' : 'fa-microphone text-green-500'}"></i>`;
+                    
+                    const pinBtn = document.createElement('button');
+                    pinBtn.className = 'absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10';
+                    pinBtn.innerHTML = '<i class="fa-solid fa-expand text-xs"></i>';
+                    pinBtn.onclick = () => window.togglePin(u.id);
+                    
+                    tile.appendChild(video);
+                    tile.appendChild(avatar);
+                    tile.appendChild(label);
+                    tile.appendChild(pinBtn);
+                    videoGrid.appendChild(tile);
+                } else {
+                    const video = document.getElementById(`video-cam-${u.id}`);
+                    const avatar = document.getElementById(`avatar-cam-${u.id}`);
+                    const label = document.getElementById(`label-cam-${u.id}`);
+                    if (video) video.classList.toggle('hidden', !u.camOn);
+                    if (avatar) avatar.classList.toggle('hidden', u.camOn);
+                    if (label) label.innerHTML = `<span>${u.username}</span> <i class="fa-solid ${u.micMuted ? 'fa-microphone-slash text-red-500' : 'fa-microphone text-green-500'}"></i>`;
+                }
+            } else {
+                usersList.innerHTML += badgeHtml;
+            }
+        });
+
+        Array.from(videoGrid.children).forEach(tile => {
+            if (!users.find(u => u.id === tile.dataset.userId && u.inVC)) {
+                tile.remove();
+                if (pinnedUserId === tile.dataset.userId) window.togglePin(pinnedUserId);
+            }
         });
     });
 

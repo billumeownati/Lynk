@@ -10,9 +10,7 @@ const io = socketIo(server);
 const PORT = process.env.PORT || 3000;
 
 app.get("/health", (req, res) => res.status(200).send("ok"));
-
 app.get("/chat", (req, res) => res.sendFile(path.join(__dirname, 'public', 'chat.html')));
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 const rooms = {};
@@ -97,11 +95,20 @@ io.on('connection', (socket) => {
 
     socket.on('leaveVC', () => {
         if (!socket.currentRoom || !rooms[socket.currentRoom]) return;
-        const user = rooms[socket.currentRoom].users.find(u => u.id === socket.id);
+        const room = rooms[socket.currentRoom];
+        const user = room.users.find(u => u.id === socket.id);
         if (user) {
             user.inVC = false;
             user.camOn = false;
-            io.to(socket.currentRoom).emit('roomUsersUpdate', rooms[socket.currentRoom].users);
+            
+            // NEW: Clears screen share if the user just leaves the VC
+            if (room.activeScreenSharer === socket.id) {
+                room.activeScreenSharer = null;
+                room.activeScreenStreamId = null;
+                io.to(socket.currentRoom).emit('screenShareStopped');
+            }
+
+            io.to(socket.currentRoom).emit('roomUsersUpdate', room.users);
             socket.to(socket.currentRoom).emit('userLeftVC', socket.id);
         }
     });

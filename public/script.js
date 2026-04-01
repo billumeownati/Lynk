@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const screenQuality = document.getElementById('screen-quality');
     const screenShareContainer = document.getElementById('screen-share-container');
     const sharedVideo = document.getElementById('shared-video');
-    const screenShareLabel = document.getElementById('screen-share-label');
+    const screenFsBtn = document.getElementById('screen-fullscreen-btn');
     const leaveVcBtn = document.getElementById('leave-vc-btn');
     const vcUsersList = document.getElementById('vc-users-list');
     const audioContainer = document.getElementById('audio-container');
@@ -249,13 +249,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    screenShareContainer.addEventListener('click', () => {
+    // Screen Share Fullscreen Handling
+    screenFsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         if (!document.fullscreenElement) {
-            if (sharedVideo.requestFullscreen) sharedVideo.requestFullscreen();
-            else if (sharedVideo.webkitRequestFullscreen) sharedVideo.webkitRequestFullscreen();
+            if (screenShareContainer.requestFullscreen) screenShareContainer.requestFullscreen();
+            else if (screenShareContainer.webkitRequestFullscreen) screenShareContainer.webkitRequestFullscreen();
         } else {
             if (document.exitFullscreen) document.exitFullscreen();
             else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+        const isFs = !!document.fullscreenElement;
+        const icon = screenFsBtn.querySelector('i');
+        const overlay = document.getElementById('screen-share-overlay');
+        
+        if (isFs) {
+            icon.className = 'fa-solid fa-compress text-xs';
+            screenShareContainer.classList.replace('h-24', 'h-full');
+            sharedVideo.classList.replace('opacity-60', 'opacity-100');
+            sharedVideo.classList.replace('blur-[1px]', 'blur-none');
+            overlay.classList.add('hidden');
+        } else {
+            icon.className = 'fa-solid fa-expand text-xs';
+            screenShareContainer.classList.replace('h-full', 'h-24');
+            sharedVideo.classList.replace('opacity-100', 'opacity-60');
+            sharedVideo.classList.replace('blur-none', 'blur-[1px]');
+            overlay.classList.remove('hidden');
         }
     });
 
@@ -284,7 +306,17 @@ document.addEventListener('DOMContentLoaded', () => {
         isInVC = false;
         
         if (isCamOn) vcCamBtn.click();
-        stopScreenShare();
+        
+        // Stop screen share completely
+        if (screenStream) {
+            screenStream.getTracks().forEach(t => t.stop());
+            screenStream = null;
+            socket.emit('stopScreenShare');
+            vcShareBtn.classList.replace('text-brand-500', 'text-gray-700');
+            vcShareBtn.classList.replace('dark:text-brand-400', 'dark:text-gray-200');
+            screenShareContainer.classList.add('hidden');
+            sharedVideo.srcObject = null;
+        }
         
         if (localCamStream) {
             localCamStream.getTracks().forEach(t => t.stop());
@@ -395,11 +427,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function stopScreenShare() {
+    vcShareBtn.addEventListener('click', async () => {
+        if (!isInVC) return;
+
         if (screenStream) {
+            // STOP SHARING manually
             const tracks = screenStream.getTracks();
             tracks.forEach(t => t.stop());
-            
             for (let id in peerConnections) {
                 const senders = peerConnections[id].getSenders();
                 tracks.forEach(track => {
@@ -407,23 +441,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (sender) peerConnections[id].removeTrack(sender);
                 });
             }
-            
             screenStream = null;
             socket.emit('stopScreenShare');
-            
             vcShareBtn.classList.replace('text-brand-500', 'text-gray-700');
             vcShareBtn.classList.replace('dark:text-brand-400', 'dark:text-gray-200');
-            
-            screenShareContainer.classList.add('hidden');
-            sharedVideo.srcObject = null;
-        }
-    }
-
-    vcShareBtn.addEventListener('click', async () => {
-        if (!isInVC) return;
-
-        if (screenStream) {
-            stopScreenShare();
+            // Hide is handled by socket.on('screenShareStopped')
         } else {
             try {
                 const idealHeight = parseInt(screenQuality.value) || 1080;
@@ -446,7 +468,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
+                screenStream.getVideoTracks()[0].onended = () => {
+                    if (screenStream) vcShareBtn.click();
+                };
 
             } catch (err) {
                 console.error("Screen share cancelled or failed:", err);
@@ -460,12 +484,28 @@ document.addEventListener('DOMContentLoaded', () => {
         activeScreenStreamId = null;
         screenShareContainer.classList.add('hidden');
         sharedVideo.srcObject = null;
+        if (document.fullscreenElement && document.fullscreenElement === screenShareContainer) {
+            if (document.exitFullscreen) document.exitFullscreen();
+        }
     });
     
     socket.on('forceStopShare', () => {
         if (screenStream) {
-            stopScreenShare();
+            const tracks = screenStream.getTracks();
+            tracks.forEach(t => t.stop());
+            for (let id in peerConnections) {
+                const senders = peerConnections[id].getSenders();
+                tracks.forEach(track => {
+                    const sender = senders.find(s => s.track === track);
+                    if (sender) peerConnections[id].removeTrack(sender);
+                });
+            }
+            screenStream = null;
+            vcShareBtn.classList.replace('text-brand-500', 'text-gray-700');
+            vcShareBtn.classList.replace('dark:text-brand-400', 'dark:text-gray-200');
             showModal("Someone else started sharing their screen.");
+            // We intentionally do NOT hide the container here. The socket.on('screenShareActive') 
+            // from the new user will route their video right into the existing player perfectly.
         }
     });
 
@@ -570,39 +610,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate));
     });
 
-    window.togglePin = function(userId) {
+    function updateVideoGrid() {
         const tiles = document.querySelectorAll('.video-tile');
-        if (pinnedUserId === userId) {
-            pinnedUserId = null;
+        
+        if (!pinnedUserId) {
+            // Default Equal Grid Layout
+            videoGrid.className = 'w-full h-full grid gap-3 auto-rows-fr grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 relative transition-all';
             tiles.forEach(t => {
-                t.className = 'video-tile relative bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center border border-white/10 shadow-lg group transition-all';
-                t.style = '';
-                const btn = t.querySelector('button i');
+                t.className = 'video-tile relative bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center border border-white/10 shadow-lg group transition-all h-full min-h-[150px]';
+                const btn = t.querySelector('.pin-btn i');
                 if (btn) btn.className = 'fa-solid fa-expand text-xs';
             });
-            videoGrid.classList.remove('flex', 'flex-wrap');
-            videoGrid.classList.add('grid');
         } else {
-            pinnedUserId = userId;
-            videoGrid.classList.remove('grid');
-            videoGrid.classList.add('flex', 'flex-wrap');
-            
-            let offset = 0;
+            // Pinned Dynamic Layout (1 Large, Others Small)
+            videoGrid.className = 'w-full h-full grid gap-3 grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 auto-rows-min relative transition-all';
             tiles.forEach(t => {
-                const btn = t.querySelector('button i');
-                if (t.dataset.userId === userId) {
-                    t.className = 'video-tile absolute inset-0 z-10 w-full h-full bg-gray-900 rounded-xl overflow-hidden shadow-inner transition-all';
-                    t.style = '';
+                const btn = t.querySelector('.pin-btn i');
+                if (t.dataset.userId === pinnedUserId) {
+                    t.className = 'video-tile relative bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center border border-white/10 shadow-lg group transition-all col-span-full h-[50vh] sm:h-[60vh]';
                     if (btn) btn.className = 'fa-solid fa-compress text-xs';
                 } else {
-                    t.className = 'video-tile absolute z-20 w-32 h-24 rounded-lg overflow-hidden border-2 border-white/20 shadow-2xl cursor-pointer hover:scale-105 transition-all';
-                    t.style.bottom = '1rem';
-                    t.style.right = `${1 + offset * 8.5}rem`;
+                    t.className = 'video-tile relative bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center border border-white/10 shadow-lg group transition-all h-24 sm:h-32';
                     if (btn) btn.className = 'fa-solid fa-expand text-xs';
-                    offset++;
                 }
             });
         }
+    }
+
+    window.togglePin = function(userId) {
+        if (pinnedUserId === userId) pinnedUserId = null;
+        else pinnedUserId = userId;
+        updateVideoGrid();
     };
 
     const generateFunnyName = () => `${["Sneaky", "Grumpy", "Happy", "Sleepy", "Clumsy"][Math.floor(Math.random()*5)]} ${["Potato", "Ninja", "Panda", "Unicorn", "Goblin"][Math.floor(Math.random()*5)]}`;
@@ -767,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     label.innerHTML = `<span>${u.username}</span> <i class="fa-solid ${u.micMuted ? 'fa-microphone-slash text-red-500' : 'fa-microphone text-green-500'}"></i>`;
                     
                     const pinBtn = document.createElement('button');
-                    pinBtn.className = 'absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10';
+                    pinBtn.className = 'pin-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10';
                     pinBtn.innerHTML = '<i class="fa-solid fa-expand text-xs"></i>';
                     pinBtn.onclick = () => window.togglePin(u.id);
                     
@@ -795,6 +833,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pinnedUserId === tile.dataset.userId) window.togglePin(pinnedUserId);
             }
         });
+
+        updateVideoGrid(); // Enforces proper grid layout dynamically
     });
 
     toggleCodeBtn.addEventListener('click', () => {

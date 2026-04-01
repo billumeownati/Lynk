@@ -260,7 +260,7 @@
                             </div>
                         </div>
 
-                        <div id="video-chat-view" class="absolute inset-0 flex flex-col w-full h-full bg-black/60 backdrop-blur-sm hidden transition-opacity duration-300 p-2 sm:p-4 z-10">
+                        <div id="video-chat-view" class="absolute inset-0 flex flex-col w-full h-full bg-black/60 backdrop-blur-sm hidden transition-opacity duration-300 p-2 sm:p-4 z-10 overflow-y-auto">
                             <div id="video-grid" class="w-full h-full grid gap-3 auto-rows-fr grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 relative transition-all">
                             </div>
                         </div>
@@ -292,11 +292,14 @@
                         <ul id="vc-users-list" class="space-y-2 min-h-[10px]">
                         </ul>
 
-                        <div id="screen-share-container" class="hidden mt-3 w-full h-24 bg-black/80 rounded-xl relative overflow-hidden group border border-white/20 shadow-lg cursor-pointer transform hover:scale-[1.02] transition-all" title="Click to Fullscreen">
+                        <div id="screen-share-container" class="hidden mt-3 w-full h-24 bg-black/80 rounded-xl relative overflow-hidden group border border-white/20 shadow-lg transition-all">
                             <video id="shared-video" autoplay playsinline disablepictureinpicture controlsList="nodownload noplaybackrate" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity blur-[1px] group-hover:blur-none pointer-events-none"></video>
-                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div id="screen-share-overlay" class="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity">
                                 <span id="screen-share-label" class="bg-black/70 text-white text-[10px] px-3 py-1.5 rounded-full font-bold backdrop-blur-md border border-white/10 shadow-lg"><i class="fa-solid fa-desktop mr-1.5 text-brand-500"></i> Show Stream</span>
                             </div>
+                            <button id="screen-fullscreen-btn" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-auto shadow-md" title="Fullscreen">
+                                <i class="fa-solid fa-expand text-xs"></i>
+                            </button>
                         </div>
 
                     </div>

@@ -66,7 +66,7 @@
         <h2 class="text-4xl font-brand tracking-tight mb-2">Lynk</h2>
         
         <div class="h-6 mb-6">
-            <p id="status-text" class="text-xs font-bold text-brand-400 tracking-widest uppercase">Establishing secure connection<span id="dots">...</span></p>
+            <p id="status-text" class="text-xs font-bold text-brand-400 tracking-widest uppercase">Establishing secure connection...</p>
         </div>
 
         <div class="loader-ring mb-8"></div>
@@ -101,7 +101,7 @@
             }
 
             clearInterval(dotInterval);
-            statusText.innerHTML = '<span class="text-green-400"><i class="fa-solid fa-check mr-1"></i> Server Awake! Redirecting...</span>';
+            statusText.innerHTML = '<span class="text-green-400"><i class="fa-solid fa-check mr-1"></i> Connection Established! Redirecting...</span>';
             
             // Redirect to the chat app route we made in server.js
             setTimeout(() => {

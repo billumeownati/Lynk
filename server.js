@@ -58,9 +58,17 @@ io.on('connection', (socket) => {
 
     socket.on('joinRoom', ({ roomCode, username, passwordHash }) => {
         if (!rooms[roomCode]) return socket.emit('roomError', 'No room found with this code.');
+        
+        // 1. Room HAS a password, but they got it wrong
         if (rooms[roomCode].passwordHash && rooms[roomCode].passwordHash !== passwordHash) {
             return socket.emit('roomError', 'Incorrect password for this room.');
         }
+        
+        // 2. Room DOES NOT have a password, but they typed one anyway
+        if (!rooms[roomCode].passwordHash && passwordHash) {
+            return socket.emit('roomError', 'This room is not password protected. Leave the password field empty.');
+        }
+
         leaveCurrentRoom();
         joinRoomInternal(socket, roomCode, username);
     });

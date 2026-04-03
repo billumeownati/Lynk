@@ -511,6 +511,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createPeerConnection(targetId, isInitiator) {
         const pc = new RTCPeerConnection(iceConfig);
+        pc.iceQueue = [];
+        pc.ignoreOffer = false;
         peerConnections[targetId] = pc;
 
         if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -592,18 +594,26 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('webrtc-offer', async ({ sender, offer }) => {
         if (!isInVC) return;
         let pc = peerConnections[sender];
-        const isReceiver = !pc; 
-        
         if (!pc) pc = createPeerConnection(sender, false);
 
-        const offerCollision = (pc.signalingState !== "stable") || pc.makingOffer;
-        if (offerCollision && !isReceiver) return; 
+        const isPolite = socket.id.localeCompare(sender) > 0;
+        const offerCollision = pc.makingOffer || pc.signalingState !== "stable";
+
+        pc.ignoreOffer = !isPolite && offerCollision;
+        if (pc.ignoreOffer) return;
 
         try {
             await pc.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             socket.emit('webrtc-answer', { target: sender, answer: answer });
+            
+            if (pc.iceQueue && pc.iceQueue.length > 0) {
+                for (let c of pc.iceQueue) {
+                    try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch(e){}
+                }
+                pc.iceQueue = [];
+            }
         } catch (err) {
             console.error("Offer error:", err);
         }
@@ -611,19 +621,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('webrtc-answer', async ({ sender, answer }) => {
         const pc = peerConnections[sender];
-        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        if (pc) {
+            try {
+                await pc.setRemoteDescription(new RTCSessionDescription(answer));
+                
+                if (pc.iceQueue && pc.iceQueue.length > 0) {
+                    for (let c of pc.iceQueue) {
+                        try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch(e){}
+                    }
+                    pc.iceQueue = [];
+                }
+            } catch (err) {
+                console.error("Answer error:", err);
+            }
+        }
     });
 
     socket.on('webrtc-ice-candidate', async ({ sender, candidate }) => {
         const pc = peerConnections[sender];
-        if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        if (pc) {
+            try {
+                if (!pc.remoteDescription) {
+                    pc.iceQueue.push(candidate);
+                } else if (!pc.ignoreOffer) {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+            } catch (err) {
+                console.error("ICE error:", err);
+            }
+        }
     });
 
     function updateVideoGrid() {
         const tiles = document.querySelectorAll('.video-tile');
         
         if (!pinnedUserId) {
-            // Default Equal Grid Layout
             videoGrid.className = 'w-full h-full grid gap-3 auto-rows-fr grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 relative transition-all';
             tiles.forEach(t => {
                 t.className = 'video-tile relative bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center border border-white/10 shadow-lg group transition-all h-full min-h-[150px]';

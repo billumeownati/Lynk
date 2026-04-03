@@ -532,7 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (camVideoEl) camVideoEl.srcObject = event.streams[0];
                 }
             } else if (event.track.kind === 'audio') {
-                let audioId = `audio-${event.track.id}`; 
+                let audioId = `audio-${targetId}-${event.track.id}`; 
                 let audioEl = document.getElementById(audioId);
                 if (!audioEl) {
                     audioEl = document.createElement('audio');
@@ -550,32 +550,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        pc.makingOffer = false;
         pc.onnegotiationneeded = async () => {
             try {
+                pc.makingOffer = true;
                 const offer = await pc.createOffer();
+                if (pc.signalingState !== "stable") return; // Abort if state crashed
                 await pc.setLocalDescription(offer);
                 socket.emit('webrtc-offer', { target: targetId, offer: offer });
             } catch (err) {
                 console.error("Renegotiation error:", err);
+            } finally {
+                pc.makingOffer = false;
             }
         };
 
         pc.onconnectionstatechange = () => {
             if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-                document.querySelectorAll(`audio[id^="audio-"]`).forEach(el => {
-                    if (el.srcObject && el.srcObject.getTracks().some(t => !t.active || t.readyState === 'ended')) el.remove();
-                });
+                document.querySelectorAll(`audio[id^="audio-${targetId}"]`).forEach(el => el.remove());
                 if (peerConnections[targetId]) peerConnections[targetId].close();
                 delete peerConnections[targetId];
             }
         };
 
-        if (isInitiator) {
-            pc.createOffer().then(offer => {
-                pc.setLocalDescription(offer);
-                socket.emit('webrtc-offer', { target: targetId, offer: offer });
-            });
-        }
         return pc;
     }
 
@@ -588,16 +585,28 @@ document.addEventListener('DOMContentLoaded', () => {
             peerConnections[targetId].close();
             delete peerConnections[targetId];
         }
+
+        document.querySelectorAll(`audio[id^="audio-${targetId}"]`).forEach(el => el.remove());
     });
 
     socket.on('webrtc-offer', async ({ sender, offer }) => {
         if (!isInVC) return;
         let pc = peerConnections[sender];
+        const isReceiver = !pc; 
+        
         if (!pc) pc = createPeerConnection(sender, false);
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit('webrtc-answer', { target: sender, answer: answer });
+
+        const offerCollision = (pc.signalingState !== "stable") || pc.makingOffer;
+        if (offerCollision && !isReceiver) return; 
+
+        try {
+            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit('webrtc-answer', { target: sender, answer: answer });
+        } catch (err) {
+            console.error("Offer error:", err);
+        }
     });
 
     socket.on('webrtc-answer', async ({ sender, answer }) => {
